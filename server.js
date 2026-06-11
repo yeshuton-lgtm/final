@@ -347,6 +347,8 @@ function readBody(req) {
       try {
         resolve(body ? JSON.parse(body) : {});
       } catch (error) {
+        error.statusCode = 400;
+        error.publicMessage = 'Invalid JSON body.';
         reject(error);
       }
     });
@@ -1226,13 +1228,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname.startsWith('/api/')) {
-      return handleApi(req, res, pathname);
+      return await handleApi(req, res, pathname);
     }
 
     return notFound(res);
   } catch (error) {
     console.error(error);
-    sendJson(res, 500, { error: 'Server error' });
+    sendJson(res, error.statusCode || 500, { error: error.publicMessage || 'Server error' });
   }
 });
 
