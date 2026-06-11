@@ -29,12 +29,24 @@ function blankReport(url, index) {
   };
 }
 
+function blankStockItem(url, now = new Date().toISOString()) {
+  return {
+    id: crypto.randomBytes(6).toString('hex'),
+    url,
+    status: 'available',
+    addedAt: now,
+    assignedAt: '',
+    assignedBundle: ''
+  };
+}
+
 function ensureData() {
   fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
   if (!fs.existsSync(DATA_FILE)) {
     const demoToken = 'demo5';
     const now = new Date().toISOString();
     const data = {
+      inventory: [],
       bundles: {
         [demoToken]: {
           token: demoToken,
@@ -50,6 +62,15 @@ function ensureData() {
 }
 
 function migrateData(data) {
+  data.inventory = Array.isArray(data.inventory) ? data.inventory : [];
+  data.inventory.forEach((item) => {
+    item.id = String(item.id || crypto.randomBytes(6).toString('hex'));
+    item.url = String(item.url || '');
+    item.status = item.status === 'assigned' ? 'assigned' : 'available';
+    item.addedAt = String(item.addedAt || '');
+    item.assignedAt = String(item.assignedAt || '');
+    item.assignedBundle = String(item.assignedBundle || '');
+  });
   data.bundles = data.bundles || {};
   Object.values(data.bundles).forEach((bundle) => {
     bundle.accountKey = normalizeAccount(bundle.accountKey || '');
@@ -195,6 +216,51 @@ function publicBundle(data, bundle) {
     account: accountSummary(data, bundle),
     reports: bundle.reports.map((report) => publicReport(bundle, report))
   };
+}
+
+function inventorySummary(data) {
+  const available = data.inventory.filter((item) => item.status === 'available').length;
+  const assigned = data.inventory.filter((item) => item.status === 'assigned').length;
+  return {
+    total: data.inventory.length,
+    available,
+    assigned
+  };
+}
+
+function addInventoryLinks(data, rawLinks) {
+  const existing = new Set(data.inventory.map((item) => item.url));
+  const now = new Date().toISOString();
+  const added = [];
+  const skipped = [];
+  rawLinks
+    .map((link) => String(link || '').trim())
+    .filter(Boolean)
+    .forEach((url) => {
+      if (existing.has(url)) {
+        skipped.push(url);
+        return;
+      }
+      const item = blankStockItem(url, now);
+      data.inventory.push(item);
+      existing.add(url);
+      added.push(item);
+    });
+  return { added, skipped };
+}
+
+function assignInventory(data, count, token) {
+  const available = data.inventory.filter((item) => item.status === 'available');
+  if (available.length < count) {
+    return null;
+  }
+  const now = new Date().toISOString();
+  return available.slice(0, count).map((item) => {
+    item.status = 'assigned';
+    item.assignedAt = now;
+    item.assignedBundle = token;
+    return item.url;
+  });
 }
 
 function findExistingSearch(data, bundle, rawSearchKey) {
@@ -612,52 +678,116 @@ function adminHtml() {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Create Bundle</title>
+  <title>Report Inventory Admin</title>
   <style>
     body { font-family: Arial, Helvetica, sans-serif; margin: 0; background: #f4f6f8; color: #18212f; }
-    .shell { width: min(900px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0; }
+    .shell { width: min(1040px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0; }
+    h1 { margin: 0; }
+    h2 { margin: 0 0 12px; font-size: 18px; }
     label { display: block; font-weight: 700; margin: 16px 0 8px; }
     input, textarea { width: 100%; border: 1px solid #d9dee7; border-radius: 6px; padding: 10px; font: inherit; }
     textarea { min-height: 220px; }
     button { margin-top: 16px; border: 0; border-radius: 6px; background: #1463ff; color: #fff; padding: 11px 14px; font-weight: 700; cursor: pointer; }
+    button.secondary { background: #fff; color: #18212f; border: 1px solid #d9dee7; }
     .box { background: #fff; border: 1px solid #d9dee7; border-radius: 8px; padding: 16px; margin-top: 16px; }
+    .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+    .stat { background: #fff; border: 1px solid #d9dee7; border-radius: 8px; padding: 16px; }
+    .stat strong { display: block; font-size: 30px; margin-bottom: 6px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
     .muted { color: #667085; }
+    .result { line-height: 1.5; }
+    @media (max-width: 760px) { .stats, .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <main class="shell">
-    <h1>Create Bundle Or Add Credits</h1>
-    <p class="muted">Paste one report link per line. Use the same customer phone/account ID to add credits to an existing customer account and combine history across all of their bundles.</p>
-    <div class="box">
-      <label>Customer name</label>
-      <input id="name" value="Customer" />
-      <label>Customer phone or account ID</label>
-      <input id="accountKey" placeholder="Example: 5551234567" />
-      <label>Report links</label>
-      <textarea id="links">https://carfax.codes/RSRK1NH9DP
-https://carfax.codes/HUP7OCNYL6
-https://carfax.codes/UK6TUOORZI
-https://carfax.codes/UWDHXKWROC
-https://carfax.codes/L0JOK0VVJ4</textarea>
-      <button id="create">Create bundle / Add credits</button>
-      <p id="result"></p>
+    <h1>Report Inventory Admin</h1>
+    <p class="muted">Add report links to inventory, then generate customer bundles by quantity. Using the same customer phone/account ID combines balances and history.</p>
+
+    <section class="stats">
+      <div class="stat"><strong id="stockAvailable">0</strong><span class="muted">Available stock</span></div>
+      <div class="stat"><strong id="stockAssigned">0</strong><span class="muted">Assigned to bundles</span></div>
+      <div class="stat"><strong id="stockTotal">0</strong><span class="muted">Total links added</span></div>
+    </section>
+
+    <div class="grid">
+      <section class="box">
+        <h2>Add Inventory</h2>
+        <p class="muted">Paste newly purchased report links here, one per line. Duplicates will be skipped.</p>
+        <label>New inventory links</label>
+        <textarea id="stockLinks" placeholder="https://carfax.codes/..."></textarea>
+        <button id="addStock">Add to inventory</button>
+        <p class="result" id="stockResult"></p>
+      </section>
+
+      <section class="box">
+        <h2>Create Bundle / Add Credits</h2>
+        <label>Customer name</label>
+        <input id="name" value="Customer" />
+        <label>Customer phone or account ID</label>
+        <input id="accountKey" placeholder="Example: 5551234567" />
+        <label>Quantity from inventory</label>
+        <input id="quantity" type="number" min="0" step="1" placeholder="Example: 20" />
+        <label>Optional manual links</label>
+        <textarea id="links" placeholder="Use this only when you want to create a bundle from manually pasted links instead of stock."></textarea>
+        <button id="create">Create bundle / Add credits</button>
+        <button id="refresh" class="secondary" type="button">Refresh inventory</button>
+        <p class="result" id="result"></p>
+      </section>
     </div>
   </main>
   <script>
+    const password = new URLSearchParams(location.search).get('password') || '';
+    async function api(path, options = {}) {
+      const response = await fetch(path + (path.includes('?') ? '&' : '?') + 'password=' + encodeURIComponent(password), {
+        headers: { 'content-type': 'application/json' },
+        ...options
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    }
+    async function loadInventory() {
+      const data = await api('/api/inventory');
+      document.getElementById('stockAvailable').textContent = data.available;
+      document.getElementById('stockAssigned').textContent = data.assigned;
+      document.getElementById('stockTotal').textContent = data.total;
+    }
+    document.getElementById('addStock').addEventListener('click', async () => {
+      const links = document.getElementById('stockLinks').value.split('\\n').map((item) => item.trim()).filter(Boolean);
+      try {
+        const data = await api('/api/inventory/add', {
+          method: 'POST',
+          body: JSON.stringify({ links })
+        });
+        document.getElementById('stockResult').textContent = 'Added ' + data.added + ' links. Skipped duplicates: ' + data.skipped + '.';
+        document.getElementById('stockLinks').value = '';
+        await loadInventory();
+      } catch (error) {
+        document.getElementById('stockResult').textContent = error.message;
+      }
+    });
     document.getElementById('create').addEventListener('click', async () => {
       const customerName = document.getElementById('name').value.trim();
       const accountKey = document.getElementById('accountKey').value.trim();
       const links = document.getElementById('links').value.split('\\n').map((item) => item.trim()).filter(Boolean);
-      const password = new URLSearchParams(location.search).get('password') || '';
-      const response = await fetch('/api/bundle?password=' + encodeURIComponent(password), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ customerName, accountKey, links })
-      });
-      const data = await response.json();
-      const url = location.origin + '/r/' + data.token;
-      document.getElementById('result').innerHTML = response.ok ? 'Customer link: <a href="' + url + '">' + url + '</a><br><span class="muted">Send this link to the customer. If this account ID was used before, their history and balance will be combined.</span>' : data.error;
+      const quantity = Number(document.getElementById('quantity').value || 0);
+      try {
+        const data = await api('/api/bundle', {
+          method: 'POST',
+          body: JSON.stringify({ customerName, accountKey, links, quantity })
+        });
+        const url = location.origin + '/r/' + data.token;
+        document.getElementById('result').innerHTML = 'Customer link: <a href="' + url + '">' + url + '</a><br><span class="muted">Reports in this bundle: ' + data.bundle.total + '. Remaining stock: ' + data.inventory.available + '.</span>';
+        document.getElementById('links').value = '';
+        document.getElementById('quantity').value = '';
+        await loadInventory();
+      } catch (error) {
+        document.getElementById('result').textContent = error.message;
+      }
     });
+    document.getElementById('refresh').addEventListener('click', loadInventory);
+    loadInventory();
   </script>
 </body>
 </html>`;
@@ -666,15 +796,42 @@ https://carfax.codes/L0JOK0VVJ4</textarea>
 async function handleApi(req, res, pathname) {
   const data = readData();
 
+  if (req.method === 'GET' && pathname === '/api/inventory') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    return sendJson(res, 200, inventorySummary(data));
+  }
+
+  if (req.method === 'POST' && pathname === '/api/inventory/add') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    const body = await readBody(req);
+    const links = Array.isArray(body.links) ? body.links : [];
+    if (!links.length) return sendJson(res, 400, { error: 'Paste at least one inventory link.' });
+    const result = addInventoryLinks(data, links);
+    writeData(data);
+    return sendJson(res, 200, {
+      added: result.added.length,
+      skipped: result.skipped.length,
+      inventory: inventorySummary(data)
+    });
+  }
+
   if (req.method === 'POST' && pathname === '/api/bundle') {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
     const body = await readBody(req);
-    const links = Array.isArray(body.links) ? body.links.filter(Boolean) : [];
-    if (!links.length) return sendJson(res, 400, { error: 'At least one report link is required.' });
+    const manualLinks = Array.isArray(body.links) ? body.links.filter(Boolean) : [];
+    const quantity = Math.max(0, Number.parseInt(body.quantity, 10) || 0);
+    if (!manualLinks.length && !quantity) return sendJson(res, 400, { error: 'Enter a quantity or paste at least one report link.' });
 
     const requestedToken = String(body.token || '').trim();
     const token = /^[a-zA-Z0-9_-]{4,64}$/.test(requestedToken) ? requestedToken : crypto.randomBytes(5).toString('hex');
+    const stockLinks = quantity ? assignInventory(data, quantity, token) : [];
+    if (quantity && !stockLinks) {
+      return sendJson(res, 400, { error: `Not enough inventory. Available stock: ${inventorySummary(data).available}.` });
+    }
+    const links = [...manualLinks, ...stockLinks];
     data.bundles[token] = {
       token,
       customerName: body.customerName || 'Customer',
@@ -683,7 +840,7 @@ async function handleApi(req, res, pathname) {
       reports: links.map(blankReport)
     };
     writeData(data);
-    return sendJson(res, 201, { token, bundle: publicBundle(data, data.bundles[token]) });
+    return sendJson(res, 201, { token, bundle: publicBundle(data, data.bundles[token]), inventory: inventorySummary(data) });
   }
 
   if (req.method === 'POST' && pathname === '/api/import-bundle') {
