@@ -673,7 +673,8 @@ async function handleApi(req, res, pathname) {
     const links = Array.isArray(body.links) ? body.links.filter(Boolean) : [];
     if (!links.length) return sendJson(res, 400, { error: 'At least one report link is required.' });
 
-    const token = crypto.randomBytes(5).toString('hex');
+    const requestedToken = String(body.token || '').trim();
+    const token = /^[a-zA-Z0-9_-]{4,64}$/.test(requestedToken) ? requestedToken : crypto.randomBytes(5).toString('hex');
     data.bundles[token] = {
       token,
       customerName: body.customerName || 'Customer',
@@ -692,7 +693,8 @@ async function handleApi(req, res, pathname) {
     const reports = Array.isArray(body.reports) ? body.reports.filter((report) => report && report.url) : [];
     if (!reports.length) return sendJson(res, 400, { error: 'At least one imported report is required.' });
 
-    const token = crypto.randomBytes(5).toString('hex');
+    const requestedToken = String(body.token || '').trim();
+    const token = /^[a-zA-Z0-9_-]{4,64}$/.test(requestedToken) ? requestedToken : crypto.randomBytes(5).toString('hex');
     data.bundles[token] = {
       token,
       customerName: body.customerName || 'Imported Customer History',
