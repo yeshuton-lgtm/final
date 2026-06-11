@@ -1,4 +1,5 @@
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -77,11 +78,12 @@ function migrateData(data) {
     bundle.reports = Array.isArray(bundle.reports) ? bundle.reports : [];
     bundle.reports.forEach((report, index) => {
       report.id = report.id || index + 1;
-      report.used = Boolean(report.used);
       report.vehicle = String(report.vehicle || '');
       report.searchDisplay = String(report.searchDisplay || extractVinFromText(report.vehicle) || '');
       report.searchKey = normalizeSearchKey(report.searchKey || report.searchDisplay || extractVinFromText(report.vehicle) || '');
+      report.used = Boolean(report.used && report.searchKey);
       report.openedAt = String(report.openedAt || '');
+      if (!report.used) report.openedAt = '';
     });
   });
   return data;
@@ -110,6 +112,190 @@ function normalizeSearchKey(value) {
 function extractVinFromText(value) {
   const match = String(value || '').toUpperCase().match(/[A-HJ-NPR-Z0-9]{17}/);
   return match ? match[0] : '';
+}
+
+function decodeHtmlEntities(value) {
+  const named = { amp: '&', apos: "'", gt: '>', lt: '<', nbsp: ' ', quot: '"' };
+  return String(value || '').replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity) => {
+    const lower = entity.toLowerCase();
+    if (lower[0] === '#') {
+      const code = lower[1] === 'x' ? Number.parseInt(lower.slice(2), 16) : Number.parseInt(lower.slice(1), 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : match;
+    }
+    return named[lower] || match;
+  });
+}
+
+function htmlToText(html) {
+  return decodeHtmlEntities(
+    String(html || '')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|h1|h2|h3|li|tr|td|section|article)>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+  )
+    .replace(/\r/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s+/g, '\n')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+}
+
+function fetchText(url, redirectsLeft = 3) {
+  return new Promise((resolve, reject) => {
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch (error) {
+      reject(error);
+      return;
+    }
+
+    const client = parsed.protocol === 'http:' ? http : https;
+    const request = client.get(parsed, {
+      timeout: 12000,
+      headers: {
+        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'user-agent': 'Mozilla/5.0 VehicleReportBundle/1.0'
+      }
+    }, (response) => {
+      const location = response.headers.location;
+      if (location && response.statusCode >= 300 && response.statusCode < 400 && redirectsLeft > 0) {
+        response.resume();
+        resolve(fetchText(new URL(location, parsed).toString(), redirectsLeft - 1));
+        return;
+      }
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        response.resume();
+        reject(new Error(`Report page returned ${response.statusCode}`));
+        return;
+      }
+
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > 2_000_000) request.destroy(new Error('Report page too large'));
+      });
+      response.on('end', () => resolve(body));
+    });
+
+    request.on('timeout', () => request.destroy(new Error('Report page timed out')));
+    request.on('error', reject);
+  });
+}
+
+function cleanVehicleLine(line) {
+  return String(line || '')
+    .replace(/your report is ready!?/gi, ' ')
+    .replace(/carfax vehicle history report/gi, ' ')
+    .replace(/\bVIN\b\s*:?\s*[A-HJ-NPR-Z0-9]{3,17}\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s:-]+|[\s:-]+$/g, '')
+    .trim();
+}
+
+function isVehicleCandidate(line) {
+  const currentYear = new Date().getFullYear() + 1;
+  const match = String(line || '').match(/\b(19[8-9]\d|20[0-3]\d)\b/);
+  if (!match) return false;
+  const year = Number(match[1]);
+  if (year < 1981 || year > currentYear) return false;
+  if (line.length < 12 || line.length > 90) return false;
+  return !/(carfax|vehicle history|report|ready|download|email|built with|view|pdf|copyright|http|www\.)/i.test(line);
+}
+
+function extractWindowCodesValue(html, key) {
+  const match = String(html || '').match(new RegExp(`${key}\\s*:\\s*(null|"(?:\\\\.|[^"])*"|'(?:\\\\.|[^'])*')`, 'i'));
+  if (!match || match[1] === 'null') return '';
+  const raw = match[1].slice(1, -1);
+  return raw
+    .replace(/\\(["'\\/bfnrt])/g, (full, char) => {
+      const map = { b: '\b', f: '\f', n: '\n', r: '\r', t: '\t' };
+      return map[char] || char;
+    })
+    .replace(/\\u([0-9a-f]{4})/gi, (full, code) => String.fromCharCode(Number.parseInt(code, 16)))
+    .trim();
+}
+
+function extractReportDetails(html) {
+  const appVehicle = extractWindowCodesValue(html, 'vehicle');
+  const appVin = extractWindowCodesValue(html, 'vin').toUpperCase();
+  if (appVehicle || appVin) {
+    return {
+      vehicle: cleanVehicleLine(appVehicle),
+      vin: (appVin.match(/\b[A-HJ-NPR-Z0-9]{17}\b/i) || [''])[0].toUpperCase()
+    };
+  }
+
+  const text = htmlToText(html);
+  const vin = (text.match(/\b[A-HJ-NPR-Z0-9]{17}\b/i) || [''])[0].toUpperCase();
+  const compactText = cleanVehicleLine(text.replace(/\n/g, ' '));
+  const lines = text.split('\n').map((line) => cleanVehicleLine(line)).filter(Boolean);
+
+  let vehicle = '';
+  const broadVehicleMatch = compactText.match(/\b((?:19[8-9]\d|20[0-3]\d)\s+[A-Za-z][A-Za-z0-9 .,'/&-]{8,80}?)(?=\s+(?:VIN\b|View CARFAX|Download|Email|Built with|OR\b|$))/i);
+  if (broadVehicleMatch) vehicle = cleanVehicleLine(broadVehicleMatch[1]).slice(0, 90);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (vehicle) break;
+    const line = lines[index];
+    if (!isVehicleCandidate(line)) continue;
+    const next = lines[index + 1] || '';
+    vehicle = next && !/^VIN\b/i.test(next) && !isVehicleCandidate(next) && /^[A-Za-z0-9][A-Za-z0-9 .,'/&-]{2,35}$/.test(next)
+      ? `${line} ${next}`.slice(0, 90).trim()
+      : line;
+  }
+
+  if (!vehicle) {
+    const titleMatch = String(html || '').match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    if (titleMatch) {
+      const title = cleanVehicleLine(decodeHtmlEntities(titleMatch[1]).replace(/\s*[-|].*$/, ''));
+      if (isVehicleCandidate(title)) vehicle = title;
+    }
+  }
+
+  return { vehicle, vin };
+}
+
+function formatVehicleNote(details) {
+  const parts = [];
+  if (details.vehicle) parts.push(details.vehicle);
+  if (details.vin) parts.push(`VIN: ${details.vin}`);
+  return parts.join('\n').slice(0, 160);
+}
+
+async function fillVehicleFromReport(report) {
+  if (!report.used || report.vehicle) return false;
+  try {
+    const html = await fetchText(report.url);
+    const note = formatVehicleNote(extractReportDetails(html));
+    if (!note) return false;
+    report.vehicle = note;
+    if (!report.searchKey) {
+      const vin = extractVinFromText(note);
+      if (vin) {
+        report.searchDisplay = vin;
+        report.searchKey = normalizeSearchKey(vin);
+      }
+    }
+    return true;
+  } catch (error) {
+    console.log(`Vehicle note fetch failed for ${report.url}: ${error.message}`);
+    return false;
+  }
+}
+
+async function refreshMissingVehicles(data, bundle) {
+  let changed = false;
+  for (const report of bundle.reports) {
+    if (report.used && !report.vehicle) {
+      changed = await fillVehicleFromReport(report) || changed;
+    }
+  }
+  return changed;
 }
 
 function maskAccount(value) {
@@ -454,6 +640,7 @@ function pageHtml(token) {
     async function loadBundle() {
       bundle = await api('/api/bundle/' + TOKEN);
       render();
+      refreshMissingVehicles();
     }
 
     async function connectAccount() {
@@ -520,7 +707,7 @@ function pageHtml(token) {
     }
 
     async function openNextReport(searchValue = '') {
-      const nextIndex = bundle.reports.findIndex((report) => !report.used);
+      const nextIndex = bundle.reports.findIndex((report) => !report.searchKey);
       if (nextIndex === -1) {
         alert('All reports have already been used.');
         return;
@@ -559,6 +746,18 @@ function pageHtml(token) {
         body: JSON.stringify({ searchKey: value })
       });
       render();
+      refreshMissingVehicles();
+    }
+
+    async function refreshMissingVehicles() {
+      if (!bundle || !bundle.reports.some((report) => report.used && !report.vehicle)) return;
+      try {
+        const updated = await api('/api/bundle/' + TOKEN + '/refresh-vehicles', { method: 'POST' });
+        bundle = updated;
+        render();
+      } catch (error) {
+        console.log('Vehicle refresh skipped:', error.message);
+      }
     }
 
     function render() {
@@ -926,14 +1125,36 @@ async function handleApi(req, res, pathname) {
     }
 
     const report = bundle.reports[index];
-    report.used = true;
-    if (!report.openedAt) report.openedAt = new Date().toISOString();
     if (searchDisplay) {
       report.searchDisplay = searchDisplay;
       report.searchKey = searchKey;
+      report.used = true;
+      if (!report.openedAt) report.openedAt = new Date().toISOString();
+    } else {
+      report.searchDisplay = '';
+      report.searchKey = '';
+      report.used = false;
+      report.openedAt = '';
     }
     writeData(data);
+    if (report.used && !report.vehicle) {
+      setTimeout(async () => {
+        const latestData = readData();
+        const latestBundle = latestData.bundles[openMatch[1]];
+        const latestReport = latestBundle && latestBundle.reports[index];
+        if (latestReport && await fillVehicleFromReport(latestReport)) writeData(latestData);
+      }, 30000).unref();
+    }
     return sendJson(res, 200, { duplicate: false, url: report.url, bundle: publicBundle(data, bundle) });
+  }
+
+  const refreshVehiclesMatch = pathname.match(/^\/api\/bundle\/([^/]+)\/refresh-vehicles$/);
+  if (req.method === 'POST' && refreshVehiclesMatch) {
+    const bundle = data.bundles[refreshVehiclesMatch[1]];
+    if (!bundle) return notFound(res);
+    const changed = await refreshMissingVehicles(data, bundle);
+    if (changed) writeData(data);
+    return sendJson(res, 200, publicBundle(data, bundle));
   }
 
   const reopenMatch = pathname.match(/^\/api\/bundle\/([^/]+)\/reopen-search$/);
@@ -966,6 +1187,13 @@ async function handleApi(req, res, pathname) {
     const searchDisplay = String(body.searchKey || '').trim();
     bundle.reports[index].searchDisplay = searchDisplay.slice(0, 40);
     bundle.reports[index].searchKey = normalizeSearchKey(searchDisplay);
+    bundle.reports[index].used = Boolean(bundle.reports[index].searchKey);
+    if (bundle.reports[index].used && !bundle.reports[index].openedAt) {
+      bundle.reports[index].openedAt = new Date().toISOString();
+    }
+    if (!bundle.reports[index].used) {
+      bundle.reports[index].openedAt = '';
+    }
     writeData(data);
     return sendJson(res, 200, publicBundle(data, bundle));
   }
