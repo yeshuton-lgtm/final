@@ -384,6 +384,7 @@ function accountSummary(data, bundle) {
     total: reports.length,
     used,
     remaining: reports.length - used,
+    reports: reports.map((item) => publicReport(item.bundle, item.report)),
     history: reports
       .filter((item) => item.report.used)
       .sort((a, b) => String(b.report.openedAt).localeCompare(String(a.report.openedAt)))
@@ -547,9 +548,9 @@ function pageHtml(token) {
     </header>
 
     <section class="stats">
-      <div class="stat"><strong id="totalCount">0</strong><span>Total reports in this bundle</span></div>
-      <div class="stat"><strong id="usedCount">0</strong><span>Used in this bundle</span></div>
-      <div class="stat"><strong id="remainingCount">0</strong><span>Remaining in this bundle</span></div>
+      <div class="stat"><strong id="totalCount">0</strong><span>Total reports</span></div>
+      <div class="stat"><strong id="usedCount">0</strong><span>Used reports</span></div>
+      <div class="stat"><strong id="remainingCount">0</strong><span>Remaining reports</span></div>
     </section>
 
     <section class="panel">
@@ -681,14 +682,18 @@ function pageHtml(token) {
       }
     }
 
-    async function openReport(index, searchValue = '') {
+    function displayReports() {
+      return bundle.account && bundle.account.accountKey ? bundle.account.reports : bundle.reports;
+    }
+
+    async function openReport(report, searchValue = '') {
       const reportWindow = window.open('about:blank', '_blank');
       try {
-        const result = await api('/api/bundle/' + TOKEN + '/open/' + index, {
+        const result = await api('/api/bundle/' + report.bundleToken + '/open/' + (report.id - 1), {
           method: 'POST',
           body: JSON.stringify({ searchKey: searchValue || lastCheckedSearch })
         });
-        bundle = result.bundle;
+        await loadBundle();
         render();
         if (result.duplicate) {
           if (reportWindow) reportWindow.close();
@@ -709,12 +714,12 @@ function pageHtml(token) {
     }
 
     async function openNextReport(searchValue = '') {
-      const nextIndex = bundle.reports.findIndex((report) => !report.searchKey);
-      if (nextIndex === -1) {
+      const nextReport = displayReports().find((report) => !report.searchKey);
+      if (!nextReport) {
         alert('All reports have already been used.');
         return;
       }
-      await openReport(nextIndex, searchValue || document.getElementById('searchInput').value.trim());
+      await openReport(nextReport, searchValue || document.getElementById('searchInput').value.trim());
     }
 
     async function reopenSearch(searchValue) {
@@ -735,24 +740,26 @@ function pageHtml(token) {
       }
     }
 
-    async function updateVehicle(index, value) {
-      await api('/api/bundle/' + TOKEN + '/vehicle/' + index, {
+    async function updateVehicle(report, value) {
+      await api('/api/bundle/' + report.bundleToken + '/vehicle/' + (report.id - 1), {
         method: 'POST',
         body: JSON.stringify({ vehicle: value })
       });
+      await loadBundle();
     }
 
-    async function updateReportSearch(index, value) {
-      bundle = await api('/api/bundle/' + TOKEN + '/search/' + index, {
+    async function updateReportSearch(report, value) {
+      await api('/api/bundle/' + report.bundleToken + '/search/' + (report.id - 1), {
         method: 'POST',
         body: JSON.stringify({ searchKey: value })
       });
+      await loadBundle();
       render();
       refreshMissingVehicles();
     }
 
     async function refreshMissingVehicles() {
-      if (!bundle || !bundle.reports.some((report) => report.used && !report.vehicle)) return;
+      if (!bundle || !displayReports().some((report) => report.used && !report.vehicle)) return;
       try {
         const updated = await api('/api/bundle/' + TOKEN + '/refresh-vehicles', { method: 'POST' });
         bundle = updated;
@@ -764,14 +771,15 @@ function pageHtml(token) {
 
     function render() {
       if (!bundle) return;
-      document.getElementById('totalCount').textContent = bundle.total;
-      document.getElementById('usedCount').textContent = bundle.used;
-      document.getElementById('remainingCount').textContent = bundle.remaining;
-      document.getElementById('heroRemaining').textContent = bundle.account.accountKey ? bundle.account.remaining : bundle.remaining;
-      document.getElementById('useNextButton').disabled = bundle.remaining === 0;
+      const account = bundle.account;
+      const totals = account.accountKey ? account : bundle;
+      document.getElementById('totalCount').textContent = totals.total;
+      document.getElementById('usedCount').textContent = totals.used;
+      document.getElementById('remainingCount').textContent = totals.remaining;
+      document.getElementById('heroRemaining').textContent = totals.remaining;
+      document.getElementById('useNextButton').disabled = totals.remaining === 0;
       document.getElementById('accountInput').value = bundle.accountKey || '';
 
-      const account = bundle.account;
       document.getElementById('accountSummary').textContent = account.accountKey
         ? 'Connected account: ' + account.accountLabel + ' | Combined bundles: ' + account.bundleCount + ' | Total: ' + account.total + ' | Used: ' + account.used + ' | Remaining: ' + account.remaining
         : 'No account connected yet. Connect the same phone/account ID on future bundles to combine history.';
@@ -783,11 +791,11 @@ function pageHtml(token) {
     function renderBundleRows() {
       const rows = document.getElementById('reportRows');
       rows.innerHTML = '';
-      bundle.reports.forEach((report, index) => {
+      displayReports().forEach((report) => {
         const row = document.createElement('tr');
         const slot = document.createElement('td');
         slot.className = 'slot';
-        slot.textContent = '#' + report.id;
+        slot.textContent = bundle.account.accountKey && report.bundleToken !== TOKEN ? '#' + report.id + ' (' + (report.bundleName || report.bundleToken) + ')' : '#' + report.id;
 
         const status = document.createElement('td');
         const badge = document.createElement('span');
@@ -800,7 +808,7 @@ function pageHtml(token) {
         searchInput.className = 'search-input';
         searchInput.value = report.searchDisplay || '';
         searchInput.placeholder = 'VIN or plate';
-        searchInput.addEventListener('change', (event) => updateReportSearch(index, event.target.value));
+        searchInput.addEventListener('change', (event) => updateReportSearch(report, event.target.value));
         search.appendChild(searchInput);
 
         const vehicle = document.createElement('td');
@@ -808,7 +816,7 @@ function pageHtml(token) {
         vehicleInput.className = 'vehicle-input';
         vehicleInput.value = report.vehicle || '';
         vehicleInput.placeholder = 'Example: 2006 BMW 3 Series';
-        vehicleInput.addEventListener('change', (event) => updateVehicle(index, event.target.value));
+        vehicleInput.addEventListener('change', (event) => updateVehicle(report, event.target.value));
         vehicle.appendChild(vehicleInput);
 
         const opened = document.createElement('td');
@@ -822,7 +830,7 @@ function pageHtml(token) {
         button.type = 'button';
         button.className = report.used ? 'secondary' : '';
         button.textContent = report.used ? 'Open Again' : 'Use Report';
-        button.addEventListener('click', () => openReport(index, searchInput.value));
+        button.addEventListener('click', () => openReport(report, searchInput.value));
         wrap.appendChild(button);
         actions.appendChild(wrap);
 
