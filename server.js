@@ -452,6 +452,56 @@ function assignInventory(data, count, token) {
   });
 }
 
+function releaseInventoryLinks(data, rawLinks) {
+  const urls = new Set(
+    rawLinks
+      .map((link) => String(link || '').trim())
+      .filter(Boolean)
+  );
+  const releasedUrls = new Set();
+  let notFound = 0;
+  let alreadyAvailable = 0;
+
+  urls.forEach((url) => {
+    const item = data.inventory.find((stockItem) => stockItem.url === url);
+    if (!item) {
+      notFound += 1;
+      return;
+    }
+    if (item.status !== 'assigned') {
+      alreadyAvailable += 1;
+      return;
+    }
+    item.status = 'available';
+    item.assignedAt = '';
+    item.assignedBundle = '';
+    releasedUrls.add(url);
+  });
+
+  let removedReports = 0;
+  Object.keys(data.bundles).forEach((token) => {
+    const bundle = data.bundles[token];
+    const before = bundle.reports.length;
+    bundle.reports = bundle.reports.filter((report) => {
+      if (!releasedUrls.has(report.url)) return true;
+      return Boolean(report.used || report.searchKey || report.openedAt);
+    });
+    if (bundle.reports.length !== before) {
+      removedReports += before - bundle.reports.length;
+      bundle.reports.forEach((report, index) => {
+        report.id = index + 1;
+      });
+    }
+  });
+
+  return {
+    released: releasedUrls.size,
+    removedReports,
+    notFound,
+    alreadyAvailable
+  };
+}
+
 function findExistingSearch(data, bundle, rawSearchKey) {
   const searchKey = normalizeSearchKey(rawSearchKey);
   if (!searchKey) return null;
@@ -926,6 +976,7 @@ function adminHtml() {
         <label>New inventory links</label>
         <textarea id="stockLinks" placeholder="https://carfax.codes/..."></textarea>
         <button id="addStock">Add to inventory</button>
+        <button id="releaseStock" class="secondary" type="button">Return pasted links to inventory</button>
         <p class="result" id="stockResult"></p>
       </section>
 
@@ -971,6 +1022,24 @@ function adminHtml() {
         });
         document.getElementById('stockResult').textContent = 'Added ' + data.added + ' links. Skipped duplicates: ' + data.skipped + '.';
         document.getElementById('stockLinks').value = '';
+        await loadInventory();
+      } catch (error) {
+        document.getElementById('stockResult').textContent = error.message;
+      }
+    });
+    document.getElementById('releaseStock').addEventListener('click', async () => {
+      const links = document.getElementById('stockLinks').value.split('\\n').map((item) => item.trim()).filter(Boolean);
+      if (!links.length) {
+        document.getElementById('stockResult').textContent = 'Paste the links you want to return first.';
+        return;
+      }
+      if (!confirm('Return these pasted links to available inventory? Only unused assigned reports will be removed from test bundles.')) return;
+      try {
+        const data = await api('/api/inventory/release', {
+          method: 'POST',
+          body: JSON.stringify({ links })
+        });
+        document.getElementById('stockResult').textContent = 'Returned ' + data.released + ' links. Removed unused bundle rows: ' + data.removedReports + '. Already available: ' + data.alreadyAvailable + '. Not found: ' + data.notFound + '.';
         await loadInventory();
       } catch (error) {
         document.getElementById('stockResult').textContent = error.message;
@@ -1022,6 +1091,20 @@ async function handleApi(req, res, pathname) {
     return sendJson(res, 200, {
       added: result.added.length,
       skipped: result.skipped.length,
+      inventory: inventorySummary(data)
+    });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/inventory/release') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    const body = await readBody(req);
+    const links = Array.isArray(body.links) ? body.links : [];
+    if (!links.length) return sendJson(res, 400, { error: 'Paste at least one link to return.' });
+    const result = releaseInventoryLinks(data, links);
+    writeData(data);
+    return sendJson(res, 200, {
+      ...result,
       inventory: inventorySummary(data)
     });
   }
