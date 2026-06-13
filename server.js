@@ -716,17 +716,6 @@ function pageHtml(token) {
       document.getElementById('searchActions').appendChild(button);
     }
 
-    async function copySearchToClipboard(value) {
-      const text = String(value || '').trim();
-      if (!text || !navigator.clipboard || !navigator.clipboard.writeText) return false;
-      try {
-        await navigator.clipboard.writeText(text);
-        return true;
-      } catch (error) {
-        return false;
-      }
-    }
-
     async function loadBundle() {
       bundle = await api('/api/bundle/' + TOKEN);
       render();
@@ -779,7 +768,6 @@ function pageHtml(token) {
     async function openReport(report, searchValue = '') {
       const reportWindow = window.open('about:blank', '_blank');
       const cleanSearchValue = String(searchValue || lastCheckedSearch || '').trim();
-      const copiedSearch = await copySearchToClipboard(cleanSearchValue);
       try {
         const result = await api('/api/bundle/' + report.bundleToken + '/open/' + (report.id - 1), {
           method: 'POST',
@@ -795,9 +783,7 @@ function pageHtml(token) {
           return;
         }
         if (cleanSearchValue) {
-          showNotice('ok', copiedSearch
-            ? 'VIN/plate copied. If the CARFAX page asks for it, paste it there. This report link is now saved here.'
-            : 'Report link opened and saved. If the CARFAX page asks for the VIN/plate, copy it from this page and paste it there.');
+          showNotice('ok', 'Report link opened and saved. If the CARFAX page asks for the VIN/plate, enter this value there: ' + cleanSearchValue);
         }
         if (reportWindow) {
           reportWindow.location.href = result.url;
