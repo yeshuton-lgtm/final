@@ -1301,6 +1301,10 @@ async function handleApi(req, res, pathname) {
     const body = await readBody(req);
     const searchDisplay = String(body.searchKey || '').trim();
     const searchKey = normalizeSearchKey(searchDisplay);
+    const report = bundle.reports[index];
+    if (report.used) {
+      return sendJson(res, 200, { duplicate: false, url: report.url, bundle: publicBundle(data, bundle) });
+    }
     const existing = searchKey ? findExistingSearch(data, bundle, searchKey) : null;
     if (existing && existing.report !== bundle.reports[index]) {
       return sendJson(res, 200, {
@@ -1310,7 +1314,6 @@ async function handleApi(req, res, pathname) {
       });
     }
 
-    const report = bundle.reports[index];
     if (searchDisplay) {
       report.searchDisplay = searchDisplay;
       report.searchKey = searchKey;
