@@ -530,7 +530,8 @@ function pageHtml(token) {
     .shell { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 22px 0 42px; }
     .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 54px; margin-bottom: 18px; }
     .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; color: var(--navy); }
-    .brand-mark { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: var(--navy); color: #fff; font-size: 15px; }
+    .brand-mark { display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 10px; background: #fff; border: 1px solid var(--line); overflow: hidden; box-shadow: 0 8px 20px rgba(16,24,40,.08); }
+    .brand-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .secure { color: var(--muted); font-size: 13px; }
     header.hero { background: var(--navy); color: #fff; border-radius: 8px; padding: 22px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: end; margin-bottom: 14px; }
     h1 { margin: 0; font-size: 30px; line-height: 1.15; letter-spacing: 0; }
@@ -577,13 +578,29 @@ function pageHtml(token) {
       .topbar, .toolbar { align-items: stretch; flex-direction: column; }
       header.hero { grid-template-columns: 1fr; padding: 18px; }
       .stats, .grid { grid-template-columns: 1fr; }
+      .brand { font-size: 15px; }
+      .secure { font-size: 12px; }
+      .table-wrap { overflow-x: visible; border: 0; background: transparent; }
+      table, thead, tbody, tr, th, td { display: block; width: 100%; }
+      table { min-width: 0; border-collapse: separate; border-spacing: 0; }
+      thead { display: none; }
+      tbody { display: grid; gap: 10px; }
+      tr { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+      td { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 10px; align-items: center; border-bottom: 1px solid var(--line); padding: 11px 12px; overflow-wrap: anywhere; }
+      td::before { content: attr(data-label); color: #344054; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+      tr:last-child td { border-bottom: 1px solid var(--line); }
+      td:last-child { border-bottom: 0; }
+      .slot { width: 100%; }
+      .vehicle-input, .search-input { width: 100%; min-width: 0; }
+      .actions { justify-content: stretch; }
+      .actions button { width: 100%; }
     }
   </style>
 </head>
 <body>
   <main class="shell">
     <div class="topbar">
-      <div class="brand"><span class="brand-mark">VR</span><span>Vehicle Reports Portal</span></div>
+      <div class="brand"><span class="brand-mark"><img src="https://vehiclereportnow.online/favicon.ico" alt="Vehicle Report Now" /></span><span>Vehicle Report Now</span></div>
       <div class="secure">Secure customer access</div>
     </div>
     <header class="hero">
@@ -845,15 +862,18 @@ function pageHtml(token) {
         const row = document.createElement('tr');
         const slot = document.createElement('td');
         slot.className = 'slot';
+        slot.dataset.label = 'Slot';
         slot.textContent = bundle.account.accountKey && report.bundleToken !== TOKEN ? '#' + report.id + ' (' + (report.bundleName || report.bundleToken) + ')' : '#' + report.id;
 
         const status = document.createElement('td');
+        status.dataset.label = 'Status';
         const badge = document.createElement('span');
         badge.className = 'status ' + (report.used ? 'used' : 'available');
         badge.textContent = report.used ? 'Used' : 'Available';
         status.appendChild(badge);
 
         const search = document.createElement('td');
+        search.dataset.label = 'VIN / Plate';
         const searchInput = document.createElement('input');
         searchInput.className = 'search-input';
         searchInput.value = report.searchDisplay || '';
@@ -862,6 +882,7 @@ function pageHtml(token) {
         search.appendChild(searchInput);
 
         const vehicle = document.createElement('td');
+        vehicle.dataset.label = 'Vehicle note';
         const vehicleInput = document.createElement('input');
         vehicleInput.className = 'vehicle-input';
         vehicleInput.value = report.vehicle || '';
@@ -871,9 +892,11 @@ function pageHtml(token) {
 
         const opened = document.createElement('td');
         opened.className = 'time';
+        opened.dataset.label = 'Opened';
         opened.textContent = formatDate(report.openedAt);
 
         const actions = document.createElement('td');
+        actions.dataset.label = 'Actions';
         const wrap = document.createElement('div');
         wrap.className = 'actions';
         const button = document.createElement('button');
@@ -901,15 +924,20 @@ function pageHtml(token) {
       bundle.account.history.forEach((report) => {
         const row = document.createElement('tr');
         const search = document.createElement('td');
+        search.dataset.label = 'VIN / Plate';
         search.textContent = report.searchDisplay || report.searchKey || 'Not saved';
         const vehicle = document.createElement('td');
+        vehicle.dataset.label = 'Vehicle note';
         vehicle.textContent = report.vehicle || '';
         const bundleCell = document.createElement('td');
+        bundleCell.dataset.label = 'Bundle';
         bundleCell.textContent = report.bundleName || report.bundleToken;
         const opened = document.createElement('td');
         opened.className = 'time';
+        opened.dataset.label = 'Opened';
         opened.textContent = formatDate(report.openedAt);
         const actions = document.createElement('td');
+        actions.dataset.label = 'Actions';
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'secondary';
