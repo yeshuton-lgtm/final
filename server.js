@@ -452,6 +452,15 @@ function assignInventory(data, count, token) {
   });
 }
 
+function assignSingleInventoryLink(data) {
+  const item = data.inventory.find((stockItem) => stockItem.status === 'available');
+  if (!item) return null;
+  item.status = 'assigned';
+  item.assignedAt = new Date().toISOString();
+  item.assignedBundle = 'single-sale';
+  return item.url;
+}
+
 function releaseInventoryLinks(data, rawLinks) {
   const urls = new Set(
     rawLinks
@@ -1030,6 +1039,14 @@ function adminHtml() {
       </section>
 
       <section class="box">
+        <h2>Single Report Sale</h2>
+        <p class="muted">Use this for one-report customers. It takes one link from available inventory and gives you the raw CARFAX link to send.</p>
+        <button id="singleLink" type="button">Get single report link</button>
+        <button id="copySingleLink" class="secondary" type="button" disabled>Copy link</button>
+        <p class="result" id="singleResult"></p>
+      </section>
+
+      <section class="box">
         <h2>Create Bundle / Add Credits</h2>
         <label>Customer name</label>
         <input id="name" value="Customer" />
@@ -1062,6 +1079,15 @@ function adminHtml() {
       document.getElementById('stockAssigned').textContent = data.assigned;
       document.getElementById('stockTotal').textContent = data.total;
     }
+    async function copyText(text) {
+      if (!navigator.clipboard || !navigator.clipboard.writeText) return false;
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (error) {
+        return false;
+      }
+    }
     document.getElementById('addStock').addEventListener('click', async () => {
       const links = document.getElementById('stockLinks').value.split('\\n').map((item) => item.trim()).filter(Boolean);
       try {
@@ -1093,6 +1119,26 @@ function adminHtml() {
       } catch (error) {
         document.getElementById('stockResult').textContent = error.message;
       }
+    });
+    document.getElementById('singleLink').addEventListener('click', async () => {
+      if (!confirm('Take 1 available report link from inventory for a single-report sale?')) return;
+      try {
+        const data = await api('/api/inventory/single-link', { method: 'POST' });
+        const copied = await copyText(data.url);
+        document.getElementById('singleResult').innerHTML = 'Single report link: <a href="' + data.url + '" target="_blank" rel="noopener">' + data.url + '</a><br><span class="muted">' + (copied ? 'Copied to clipboard. ' : 'Use Copy link if it was not copied. ') + 'Remaining stock: ' + data.inventory.available + '.</span>';
+        const copyButton = document.getElementById('copySingleLink');
+        copyButton.disabled = false;
+        copyButton.dataset.url = data.url;
+        await loadInventory();
+      } catch (error) {
+        document.getElementById('singleResult').textContent = error.message;
+      }
+    });
+    document.getElementById('copySingleLink').addEventListener('click', async () => {
+      const url = document.getElementById('copySingleLink').dataset.url || '';
+      if (!url) return;
+      const copied = await copyText(url);
+      document.getElementById('singleResult').innerHTML = 'Single report link: <a href="' + url + '" target="_blank" rel="noopener">' + url + '</a><br><span class="muted">' + (copied ? 'Copied to clipboard.' : 'Copy failed. Select and copy the link manually.') + '</span>';
     });
     document.getElementById('create').addEventListener('click', async () => {
       const customerName = document.getElementById('name').value.trim();
@@ -1154,6 +1200,18 @@ async function handleApi(req, res, pathname) {
     writeData(data);
     return sendJson(res, 200, {
       ...result,
+      inventory: inventorySummary(data)
+    });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/inventory/single-link') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    const url = assignSingleInventoryLink(data);
+    if (!url) return sendJson(res, 400, { error: 'No available inventory links left.' });
+    writeData(data);
+    return sendJson(res, 200, {
+      url,
       inventory: inventorySummary(data)
     });
   }
