@@ -707,6 +707,17 @@ function pageHtml(token) {
       document.getElementById('searchActions').appendChild(button);
     }
 
+    async function copySearchToClipboard(value) {
+      const text = String(value || '').trim();
+      if (!text || !navigator.clipboard || !navigator.clipboard.writeText) return false;
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (error) {
+        return false;
+      }
+    }
+
     async function loadBundle() {
       bundle = await api('/api/bundle/' + TOKEN);
       render();
@@ -741,8 +752,11 @@ function pageHtml(token) {
       });
       if (result.duplicate) {
         const vehicle = result.report.vehicle ? ' - ' + result.report.vehicle : '';
-        showNotice('warn', 'Already checked: ' + (result.report.searchDisplay || searchValue) + vehicle + '. Opening it will not use another report.');
-        addSearchAction('Open Previous Report', '', () => reopenSearch(searchValue));
+        const message = result.report.vehicle
+          ? 'Already checked: ' + (result.report.searchDisplay || searchValue) + vehicle + '. Opening it will not use another report.'
+          : 'A report link was already opened for this VIN/plate. Continue with the same link so another report is not used.';
+        showNotice('warn', message);
+        addSearchAction(result.report.vehicle ? 'Open Previous Report' : 'Continue Same Report Link', '', () => reopenSearch(searchValue));
       } else {
         showNotice('ok', 'No previous record found. You can use the next available report for this VIN/plate.');
         addSearchAction('Use Next Report For This VIN/Plate', '', () => openNextReport(searchValue));
@@ -755,19 +769,26 @@ function pageHtml(token) {
 
     async function openReport(report, searchValue = '') {
       const reportWindow = window.open('about:blank', '_blank');
+      const cleanSearchValue = String(searchValue || lastCheckedSearch || '').trim();
+      const copiedSearch = await copySearchToClipboard(cleanSearchValue);
       try {
         const result = await api('/api/bundle/' + report.bundleToken + '/open/' + (report.id - 1), {
           method: 'POST',
-          body: JSON.stringify({ searchKey: searchValue || lastCheckedSearch })
+          body: JSON.stringify({ searchKey: cleanSearchValue })
         });
         await loadBundle();
         render();
         if (result.duplicate) {
           if (reportWindow) reportWindow.close();
-          showNotice('warn', 'This VIN/plate was already checked. Open the previous report instead.');
+          showNotice('warn', 'This VIN/plate already has an opened report link saved. Continue with the same link instead of using another report.');
           clearSearchActions();
-          addSearchAction('Open Previous Report', '', () => reopenSearch(searchValue || lastCheckedSearch));
+          addSearchAction('Continue Same Report Link', '', () => reopenSearch(cleanSearchValue));
           return;
+        }
+        if (cleanSearchValue) {
+          showNotice('ok', copiedSearch
+            ? 'VIN/plate copied. If the CARFAX page asks for it, paste it there. This report link is now saved here.'
+            : 'Report link opened and saved. If the CARFAX page asks for the VIN/plate, copy it from this page and paste it there.');
         }
         if (reportWindow) {
           reportWindow.location.href = result.url;
