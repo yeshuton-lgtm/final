@@ -776,10 +776,18 @@ function pageHtml(token) {
         await loadBundle();
         render();
         if (result.duplicate) {
-          if (reportWindow) reportWindow.close();
-          showNotice('warn', 'This VIN/plate already has an opened report link saved. Continue with the same link instead of using another report.');
+          showNotice('warn', 'This VIN/plate was already used before. Opening the first saved report link instead, without using another report.');
           clearSearchActions();
           addSearchAction('Continue Same Report Link', '', () => reopenSearch(cleanSearchValue));
+          if (result.url) {
+            if (reportWindow) {
+              reportWindow.location.href = result.url;
+            } else {
+              location.href = result.url;
+            }
+          } else if (reportWindow) {
+            reportWindow.close();
+          }
           return;
         }
         if (cleanSearchValue) {
@@ -1288,6 +1296,7 @@ async function handleApi(req, res, pathname) {
     if (!existing) return sendJson(res, 200, { duplicate: false, bundle: publicBundle(data, bundle) });
     return sendJson(res, 200, {
       duplicate: true,
+      url: existing.report.url,
       report: publicReport(existing.bundle, existing.report),
       bundle: publicBundle(data, bundle)
     });
@@ -1309,6 +1318,7 @@ async function handleApi(req, res, pathname) {
     if (existing && existing.report !== bundle.reports[index]) {
       return sendJson(res, 200, {
         duplicate: true,
+        url: existing.report.url,
         report: publicReport(existing.bundle, existing.report),
         bundle: publicBundle(data, bundle)
       });
