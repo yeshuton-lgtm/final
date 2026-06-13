@@ -600,7 +600,7 @@ function pageHtml(token) {
 <body>
   <main class="shell">
     <div class="topbar">
-      <div class="brand"><span class="brand-mark"><img src="https://vehiclereportnow.online/favicon.ico" alt="Vehicle Report Now" /></span><span>Vehicle Report Now</span></div>
+      <div class="brand"><span class="brand-mark"><img src="https://vehiclereportnow.online/assets/favicon.png" alt="Vehicle Report Now" /></span><span>Vehicle Report Now</span></div>
       <div class="secure">Secure customer access</div>
     </div>
     <header class="hero">
