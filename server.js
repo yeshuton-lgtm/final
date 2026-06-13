@@ -766,7 +766,6 @@ function pageHtml(token) {
     }
 
     async function openReport(report, searchValue = '') {
-      const reportWindow = window.open('about:blank', '_blank');
       const cleanSearchValue = String(searchValue || lastCheckedSearch || '').trim();
       try {
         const result = await api('/api/bundle/' + report.bundleToken + '/open/' + (report.id - 1), {
@@ -780,26 +779,15 @@ function pageHtml(token) {
           clearSearchActions();
           addSearchAction('Continue Same Report Link', '', () => reopenSearch(cleanSearchValue));
           if (result.url) {
-            if (reportWindow) {
-              reportWindow.location.href = result.url;
-            } else {
-              location.href = result.url;
-            }
-          } else if (reportWindow) {
-            reportWindow.close();
+            location.href = result.url;
           }
           return;
         }
         if (cleanSearchValue) {
           showNotice('ok', 'Report link opened and saved. If the CARFAX page asks for the VIN/plate, enter this value there: ' + cleanSearchValue);
         }
-        if (reportWindow) {
-          reportWindow.location.href = result.url;
-        } else {
-          location.href = result.url;
-        }
+        location.href = result.url;
       } catch (error) {
-        if (reportWindow) reportWindow.close();
         alert(error.message || 'Unable to open this report. Please try again.');
       }
     }
@@ -814,19 +802,13 @@ function pageHtml(token) {
     }
 
     async function reopenSearch(searchValue) {
-      const reportWindow = window.open('about:blank', '_blank');
       try {
         const result = await api('/api/bundle/' + TOKEN + '/reopen-search', {
           method: 'POST',
           body: JSON.stringify({ searchKey: searchValue })
         });
-        if (reportWindow) {
-          reportWindow.location.href = result.url;
-        } else {
-          location.href = result.url;
-        }
+        location.href = result.url;
       } catch (error) {
-        if (reportWindow) reportWindow.close();
         alert(error.message || 'Unable to open previous report.');
       }
     }
