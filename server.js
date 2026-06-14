@@ -532,6 +532,17 @@ function pageHtml(token) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vehicle Report Bundle</title>
+  <meta name="description" content="Vehicle Report Now customer bundle access for report credits, VIN history checks, and saved report links." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Vehicle Report Now" />
+  <meta property="og:description" content="Customer bundle access for vehicle report credits and saved report links." />
+  <meta property="og:image" content="https://vehiclereportnow.online/assets/link-preview.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Vehicle Report Now" />
+  <meta name="twitter:description" content="Customer bundle access for vehicle report credits and saved report links." />
+  <meta name="twitter:image" content="https://vehiclereportnow.online/assets/link-preview.png" />
   <style>
     :root { color-scheme: light; --bg:#f6f7f9; --panel:#fff; --ink:#182230; --muted:#667085; --line:#d8dee8; --accent:#1d5fda; --accent-dark:#174bb0; --ok:#087443; --warn:#a15c00; --danger:#b42318; --navy:#111827; --gold:#c08a28; font-family: Arial, Helvetica, sans-serif; }
     * { box-sizing: border-box; }
