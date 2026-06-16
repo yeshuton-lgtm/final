@@ -384,7 +384,6 @@ function accountSummary(data, bundle) {
     total: reports.length,
     used,
     remaining: reports.length - used,
-    reports: reports.map((item) => publicReport(item.bundle, item.report)),
     history: reports
       .filter((item) => item.report.used)
       .sort((a, b) => String(b.report.openedAt).localeCompare(String(a.report.openedAt)))
@@ -452,65 +451,6 @@ function assignInventory(data, count, token) {
   });
 }
 
-function assignSingleInventoryLink(data) {
-  const item = data.inventory.find((stockItem) => stockItem.status === 'available');
-  if (!item) return null;
-  item.status = 'assigned';
-  item.assignedAt = new Date().toISOString();
-  item.assignedBundle = 'single-sale';
-  return item.url;
-}
-
-function releaseInventoryLinks(data, rawLinks) {
-  const urls = new Set(
-    rawLinks
-      .map((link) => String(link || '').trim())
-      .filter(Boolean)
-  );
-  const releasedUrls = new Set();
-  let notFound = 0;
-  let alreadyAvailable = 0;
-
-  urls.forEach((url) => {
-    const item = data.inventory.find((stockItem) => stockItem.url === url);
-    if (!item) {
-      notFound += 1;
-      return;
-    }
-    if (item.status !== 'assigned') {
-      alreadyAvailable += 1;
-      return;
-    }
-    item.status = 'available';
-    item.assignedAt = '';
-    item.assignedBundle = '';
-    releasedUrls.add(url);
-  });
-
-  let removedReports = 0;
-  Object.keys(data.bundles).forEach((token) => {
-    const bundle = data.bundles[token];
-    const before = bundle.reports.length;
-    bundle.reports = bundle.reports.filter((report) => {
-      if (!releasedUrls.has(report.url)) return true;
-      return Boolean(report.used || report.searchKey || report.openedAt);
-    });
-    if (bundle.reports.length !== before) {
-      removedReports += before - bundle.reports.length;
-      bundle.reports.forEach((report, index) => {
-        report.id = index + 1;
-      });
-    }
-  });
-
-  return {
-    released: releasedUrls.size,
-    removedReports,
-    notFound,
-    alreadyAvailable
-  };
-}
-
 function findExistingSearch(data, bundle, rawSearchKey) {
   const searchKey = normalizeSearchKey(rawSearchKey);
   if (!searchKey) return null;
@@ -525,6 +465,10 @@ function findExistingSearch(data, bundle, rawSearchKey) {
   return null;
 }
 
+function isVinSearchKey(searchKey) {
+  return /^[A-HJ-NPR-Z0-9]{17}$/.test(normalizeSearchKey(searchKey));
+}
+
 function pageHtml(token) {
   return `<!doctype html>
 <html lang="en">
@@ -532,17 +476,6 @@ function pageHtml(token) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vehicle Report Bundle</title>
-  <meta name="description" content="Vehicle Report Now customer bundle access for report credits, VIN history checks, and saved report links." />
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="Vehicle Report Now" />
-  <meta property="og:description" content="Customer bundle access for vehicle report credits and saved report links." />
-  <meta property="og:image" content="https://vehiclereportnow.online/assets/link-preview.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Vehicle Report Now" />
-  <meta name="twitter:description" content="Customer bundle access for vehicle report credits and saved report links." />
-  <meta name="twitter:image" content="https://vehiclereportnow.online/assets/link-preview.png" />
   <style>
     :root { color-scheme: light; --bg:#f6f7f9; --panel:#fff; --ink:#182230; --muted:#667085; --line:#d8dee8; --accent:#1d5fda; --accent-dark:#174bb0; --ok:#087443; --warn:#a15c00; --danger:#b42318; --navy:#111827; --gold:#c08a28; font-family: Arial, Helvetica, sans-serif; }
     * { box-sizing: border-box; }
@@ -550,8 +483,7 @@ function pageHtml(token) {
     .shell { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 22px 0 42px; }
     .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 54px; margin-bottom: 18px; }
     .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; color: var(--navy); }
-    .brand-mark { display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 10px; background: #fff; border: 1px solid var(--line); overflow: hidden; box-shadow: 0 8px 20px rgba(16,24,40,.08); }
-    .brand-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .brand-mark { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: var(--navy); color: #fff; font-size: 15px; }
     .secure { color: var(--muted); font-size: 13px; }
     header.hero { background: var(--navy); color: #fff; border-radius: 8px; padding: 22px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: end; margin-bottom: 14px; }
     h1 { margin: 0; font-size: 30px; line-height: 1.15; letter-spacing: 0; }
@@ -598,29 +530,13 @@ function pageHtml(token) {
       .topbar, .toolbar { align-items: stretch; flex-direction: column; }
       header.hero { grid-template-columns: 1fr; padding: 18px; }
       .stats, .grid { grid-template-columns: 1fr; }
-      .brand { font-size: 15px; }
-      .secure { font-size: 12px; }
-      .table-wrap { overflow-x: visible; border: 0; background: transparent; }
-      table, thead, tbody, tr, th, td { display: block; width: 100%; }
-      table { min-width: 0; border-collapse: separate; border-spacing: 0; }
-      thead { display: none; }
-      tbody { display: grid; gap: 10px; }
-      tr { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
-      td { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 10px; align-items: center; border-bottom: 1px solid var(--line); padding: 11px 12px; overflow-wrap: anywhere; }
-      td::before { content: attr(data-label); color: #344054; font-size: 11px; font-weight: 800; text-transform: uppercase; }
-      tr:last-child td { border-bottom: 1px solid var(--line); }
-      td:last-child { border-bottom: 0; }
-      .slot { width: 100%; }
-      .vehicle-input, .search-input { width: 100%; min-width: 0; }
-      .actions { justify-content: stretch; }
-      .actions button { width: 100%; }
     }
   </style>
 </head>
 <body>
   <main class="shell">
     <div class="topbar">
-      <div class="brand"><span class="brand-mark"><img src="https://vehiclereportnow.online/assets/favicon.png" alt="Vehicle Report Now" /></span><span>Vehicle Report Now</span></div>
+      <div class="brand"><span class="brand-mark">VR</span><span>Vehicle Reports Portal</span></div>
       <div class="secure">Secure customer access</div>
     </div>
     <header class="hero">
@@ -635,9 +551,9 @@ function pageHtml(token) {
     </header>
 
     <section class="stats">
-      <div class="stat"><strong id="totalCount">0</strong><span>Total reports</span></div>
-      <div class="stat"><strong id="usedCount">0</strong><span>Used reports</span></div>
-      <div class="stat"><strong id="remainingCount">0</strong><span>Remaining reports</span></div>
+      <div class="stat"><strong id="totalCount">0</strong><span>Total reports in this bundle</span></div>
+      <div class="stat"><strong id="usedCount">0</strong><span>Used in this bundle</span></div>
+      <div class="stat"><strong id="remainingCount">0</strong><span>Remaining in this bundle</span></div>
     </section>
 
     <section class="panel">
@@ -761,89 +677,91 @@ function pageHtml(token) {
       });
       if (result.duplicate) {
         const vehicle = result.report.vehicle ? ' - ' + result.report.vehicle : '';
-        const message = result.report.vehicle
-          ? 'Already checked: ' + (result.report.searchDisplay || searchValue) + vehicle + '. Opening it will not use another report.'
-          : 'A report link was already opened for this VIN/plate. Continue with the same link so another report is not used.';
-        showNotice('warn', message);
-        addSearchAction(result.report.vehicle ? 'Open Previous Report' : 'Continue Same Report Link', '', () => reopenSearch(searchValue));
+        showNotice('warn', 'Already checked VIN: ' + (result.report.searchDisplay || searchValue) + vehicle + '. Opening it will not use another report.');
+        addSearchAction('Open Previous Report', '', () => reopenSearch(searchValue));
+      } else if (result.possibleMatch) {
+        const vehicle = result.report.vehicle ? ' - ' + result.report.vehicle : '';
+        showNotice('warn', 'This plate was checked before: ' + (result.report.searchDisplay || searchValue) + vehicle + '. Plates can move to a different vehicle, so you can open the old report or run a new report.');
+        addSearchAction('Open Previous Report', 'secondary', () => reopenSearch(searchValue));
+        addSearchAction('Run New Report Anyway', '', () => openNextReport(searchValue));
       } else {
         showNotice('ok', 'No previous record found. You can use the next available report for this VIN/plate.');
         addSearchAction('Use Next Report For This VIN/Plate', '', () => openNextReport(searchValue));
       }
     }
 
-    function displayReports() {
-      return bundle.account && bundle.account.accountKey ? bundle.account.reports : bundle.reports;
-    }
-
-    async function openReport(report, searchValue = '') {
-      const cleanSearchValue = String(searchValue || lastCheckedSearch || '').trim();
+    async function openReport(index, searchValue = '') {
+      const reportWindow = window.open('about:blank', '_blank');
       try {
-        const result = await api('/api/bundle/' + report.bundleToken + '/open/' + (report.id - 1), {
+        const result = await api('/api/bundle/' + TOKEN + '/open/' + index, {
           method: 'POST',
-          body: JSON.stringify({ searchKey: cleanSearchValue })
+          body: JSON.stringify({ searchKey: searchValue || lastCheckedSearch })
         });
-        await loadBundle();
+        bundle = result.bundle;
         render();
         if (result.duplicate) {
-          showNotice('warn', 'This VIN/plate was already used before. Opening the first saved report link instead, without using another report.');
+          if (reportWindow) reportWindow.close();
+          showNotice('warn', 'This VIN was already checked. Open the previous report instead.');
           clearSearchActions();
-          addSearchAction('Continue Same Report Link', '', () => reopenSearch(cleanSearchValue));
-          if (result.url) {
-            location.href = result.url;
-          }
+          addSearchAction('Open Previous Report', '', () => reopenSearch(searchValue || lastCheckedSearch));
           return;
         }
-        if (cleanSearchValue) {
-          showNotice('ok', 'Report link opened and saved. If the CARFAX page asks for the VIN/plate, enter this value there: ' + cleanSearchValue);
+        if (reportWindow) {
+          reportWindow.location.href = result.url;
+        } else {
+          location.href = result.url;
         }
-        location.href = result.url;
       } catch (error) {
+        if (reportWindow) reportWindow.close();
         alert(error.message || 'Unable to open this report. Please try again.');
       }
     }
 
     async function openNextReport(searchValue = '') {
-      const nextReport = displayReports().find((report) => !report.searchKey);
-      if (!nextReport) {
+      const nextIndex = bundle.reports.findIndex((report) => !report.searchKey);
+      if (nextIndex === -1) {
         alert('All reports have already been used.');
         return;
       }
-      await openReport(nextReport, searchValue || document.getElementById('searchInput').value.trim());
+      await openReport(nextIndex, searchValue || document.getElementById('searchInput').value.trim());
     }
 
     async function reopenSearch(searchValue) {
+      const reportWindow = window.open('about:blank', '_blank');
       try {
         const result = await api('/api/bundle/' + TOKEN + '/reopen-search', {
           method: 'POST',
           body: JSON.stringify({ searchKey: searchValue })
         });
-        location.href = result.url;
+        if (reportWindow) {
+          reportWindow.location.href = result.url;
+        } else {
+          location.href = result.url;
+        }
       } catch (error) {
+        if (reportWindow) reportWindow.close();
         alert(error.message || 'Unable to open previous report.');
       }
     }
 
-    async function updateVehicle(report, value) {
-      await api('/api/bundle/' + report.bundleToken + '/vehicle/' + (report.id - 1), {
+    async function updateVehicle(index, value) {
+      await api('/api/bundle/' + TOKEN + '/vehicle/' + index, {
         method: 'POST',
         body: JSON.stringify({ vehicle: value })
       });
-      await loadBundle();
     }
 
-    async function updateReportSearch(report, value) {
-      await api('/api/bundle/' + report.bundleToken + '/search/' + (report.id - 1), {
+    async function updateReportSearch(index, value) {
+      bundle = await api('/api/bundle/' + TOKEN + '/search/' + index, {
         method: 'POST',
         body: JSON.stringify({ searchKey: value })
       });
-      await loadBundle();
       render();
       refreshMissingVehicles();
     }
 
     async function refreshMissingVehicles() {
-      if (!bundle || !displayReports().some((report) => report.used && !report.vehicle)) return;
+      if (!bundle || !bundle.reports.some((report) => report.used && !report.vehicle)) return;
       try {
         const updated = await api('/api/bundle/' + TOKEN + '/refresh-vehicles', { method: 'POST' });
         bundle = updated;
@@ -855,15 +773,14 @@ function pageHtml(token) {
 
     function render() {
       if (!bundle) return;
-      const account = bundle.account;
-      const totals = account.accountKey ? account : bundle;
-      document.getElementById('totalCount').textContent = totals.total;
-      document.getElementById('usedCount').textContent = totals.used;
-      document.getElementById('remainingCount').textContent = totals.remaining;
-      document.getElementById('heroRemaining').textContent = totals.remaining;
-      document.getElementById('useNextButton').disabled = totals.remaining === 0;
+      document.getElementById('totalCount').textContent = bundle.total;
+      document.getElementById('usedCount').textContent = bundle.used;
+      document.getElementById('remainingCount').textContent = bundle.remaining;
+      document.getElementById('heroRemaining').textContent = bundle.account.accountKey ? bundle.account.remaining : bundle.remaining;
+      document.getElementById('useNextButton').disabled = bundle.remaining === 0;
       document.getElementById('accountInput').value = bundle.accountKey || '';
 
+      const account = bundle.account;
       document.getElementById('accountSummary').textContent = account.accountKey
         ? 'Connected account: ' + account.accountLabel + ' | Combined bundles: ' + account.bundleCount + ' | Total: ' + account.total + ' | Used: ' + account.used + ' | Remaining: ' + account.remaining
         : 'No account connected yet. Connect the same phone/account ID on future bundles to combine history.';
@@ -875,52 +792,46 @@ function pageHtml(token) {
     function renderBundleRows() {
       const rows = document.getElementById('reportRows');
       rows.innerHTML = '';
-      displayReports().forEach((report) => {
+      bundle.reports.forEach((report, index) => {
         const row = document.createElement('tr');
         const slot = document.createElement('td');
         slot.className = 'slot';
-        slot.dataset.label = 'Slot';
-        slot.textContent = bundle.account.accountKey && report.bundleToken !== TOKEN ? '#' + report.id + ' (' + (report.bundleName || report.bundleToken) + ')' : '#' + report.id;
+        slot.textContent = '#' + report.id;
 
         const status = document.createElement('td');
-        status.dataset.label = 'Status';
         const badge = document.createElement('span');
         badge.className = 'status ' + (report.used ? 'used' : 'available');
         badge.textContent = report.used ? 'Used' : 'Available';
         status.appendChild(badge);
 
         const search = document.createElement('td');
-        search.dataset.label = 'VIN / Plate';
         const searchInput = document.createElement('input');
         searchInput.className = 'search-input';
         searchInput.value = report.searchDisplay || '';
         searchInput.placeholder = 'VIN or plate';
-        searchInput.addEventListener('change', (event) => updateReportSearch(report, event.target.value));
+        searchInput.addEventListener('change', (event) => updateReportSearch(index, event.target.value));
         search.appendChild(searchInput);
 
         const vehicle = document.createElement('td');
-        vehicle.dataset.label = 'Vehicle note';
         const vehicleInput = document.createElement('input');
         vehicleInput.className = 'vehicle-input';
         vehicleInput.value = report.vehicle || '';
         vehicleInput.placeholder = 'Example: 2006 BMW 3 Series';
-        vehicleInput.addEventListener('change', (event) => updateVehicle(report, event.target.value));
+        vehicleInput.addEventListener('change', (event) => updateVehicle(index, event.target.value));
         vehicle.appendChild(vehicleInput);
 
         const opened = document.createElement('td');
         opened.className = 'time';
-        opened.dataset.label = 'Opened';
         opened.textContent = formatDate(report.openedAt);
 
         const actions = document.createElement('td');
-        actions.dataset.label = 'Actions';
         const wrap = document.createElement('div');
         wrap.className = 'actions';
         const button = document.createElement('button');
         button.type = 'button';
         button.className = report.used ? 'secondary' : '';
         button.textContent = report.used ? 'Open Again' : 'Use Report';
-        button.addEventListener('click', () => openReport(report, searchInput.value));
+        button.addEventListener('click', () => openReport(index, searchInput.value));
         wrap.appendChild(button);
         actions.appendChild(wrap);
 
@@ -941,20 +852,15 @@ function pageHtml(token) {
       bundle.account.history.forEach((report) => {
         const row = document.createElement('tr');
         const search = document.createElement('td');
-        search.dataset.label = 'VIN / Plate';
         search.textContent = report.searchDisplay || report.searchKey || 'Not saved';
         const vehicle = document.createElement('td');
-        vehicle.dataset.label = 'Vehicle note';
         vehicle.textContent = report.vehicle || '';
         const bundleCell = document.createElement('td');
-        bundleCell.dataset.label = 'Bundle';
         bundleCell.textContent = report.bundleName || report.bundleToken;
         const opened = document.createElement('td');
         opened.className = 'time';
-        opened.dataset.label = 'Opened';
         opened.textContent = formatDate(report.openedAt);
         const actions = document.createElement('td');
-        actions.dataset.label = 'Actions';
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'secondary';
@@ -1021,16 +927,7 @@ function adminHtml() {
         <label>New inventory links</label>
         <textarea id="stockLinks" placeholder="https://carfax.codes/..."></textarea>
         <button id="addStock">Add to inventory</button>
-        <button id="releaseStock" class="secondary" type="button">Return pasted links to inventory</button>
         <p class="result" id="stockResult"></p>
-      </section>
-
-      <section class="box">
-        <h2>Single Report Sale</h2>
-        <p class="muted">Use this for one-report customers. It takes one link from available inventory and gives you the raw CARFAX link to send.</p>
-        <button id="singleLink" type="button">Get single report link</button>
-        <button id="copySingleLink" class="secondary" type="button" disabled>Copy link</button>
-        <p class="result" id="singleResult"></p>
       </section>
 
       <section class="box">
@@ -1066,15 +963,6 @@ function adminHtml() {
       document.getElementById('stockAssigned').textContent = data.assigned;
       document.getElementById('stockTotal').textContent = data.total;
     }
-    async function copyText(text) {
-      if (!navigator.clipboard || !navigator.clipboard.writeText) return false;
-      try {
-        await navigator.clipboard.writeText(text);
-        return true;
-      } catch (error) {
-        return false;
-      }
-    }
     document.getElementById('addStock').addEventListener('click', async () => {
       const links = document.getElementById('stockLinks').value.split('\\n').map((item) => item.trim()).filter(Boolean);
       try {
@@ -1088,44 +976,6 @@ function adminHtml() {
       } catch (error) {
         document.getElementById('stockResult').textContent = error.message;
       }
-    });
-    document.getElementById('releaseStock').addEventListener('click', async () => {
-      const links = document.getElementById('stockLinks').value.split('\\n').map((item) => item.trim()).filter(Boolean);
-      if (!links.length) {
-        document.getElementById('stockResult').textContent = 'Paste the links you want to return first.';
-        return;
-      }
-      if (!confirm('Return these pasted links to available inventory? Only unused assigned reports will be removed from test bundles.')) return;
-      try {
-        const data = await api('/api/inventory/release', {
-          method: 'POST',
-          body: JSON.stringify({ links })
-        });
-        document.getElementById('stockResult').textContent = 'Returned ' + data.released + ' links. Removed unused bundle rows: ' + data.removedReports + '. Already available: ' + data.alreadyAvailable + '. Not found: ' + data.notFound + '.';
-        await loadInventory();
-      } catch (error) {
-        document.getElementById('stockResult').textContent = error.message;
-      }
-    });
-    document.getElementById('singleLink').addEventListener('click', async () => {
-      if (!confirm('Take 1 available report link from inventory for a single-report sale?')) return;
-      try {
-        const data = await api('/api/inventory/single-link', { method: 'POST' });
-        const copied = await copyText(data.url);
-        document.getElementById('singleResult').innerHTML = 'Single report link: <a href="' + data.url + '" target="_blank" rel="noopener">' + data.url + '</a><br><span class="muted">' + (copied ? 'Copied to clipboard. ' : 'Use Copy link if it was not copied. ') + 'Remaining stock: ' + data.inventory.available + '.</span>';
-        const copyButton = document.getElementById('copySingleLink');
-        copyButton.disabled = false;
-        copyButton.dataset.url = data.url;
-        await loadInventory();
-      } catch (error) {
-        document.getElementById('singleResult').textContent = error.message;
-      }
-    });
-    document.getElementById('copySingleLink').addEventListener('click', async () => {
-      const url = document.getElementById('copySingleLink').dataset.url || '';
-      if (!url) return;
-      const copied = await copyText(url);
-      document.getElementById('singleResult').innerHTML = 'Single report link: <a href="' + url + '" target="_blank" rel="noopener">' + url + '</a><br><span class="muted">' + (copied ? 'Copied to clipboard.' : 'Copy failed. Select and copy the link manually.') + '</span>';
     });
     document.getElementById('create').addEventListener('click', async () => {
       const customerName = document.getElementById('name').value.trim();
@@ -1173,32 +1023,6 @@ async function handleApi(req, res, pathname) {
     return sendJson(res, 200, {
       added: result.added.length,
       skipped: result.skipped.length,
-      inventory: inventorySummary(data)
-    });
-  }
-
-  if (req.method === 'POST' && pathname === '/api/inventory/release') {
-    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
-    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
-    const body = await readBody(req);
-    const links = Array.isArray(body.links) ? body.links : [];
-    if (!links.length) return sendJson(res, 400, { error: 'Paste at least one link to return.' });
-    const result = releaseInventoryLinks(data, links);
-    writeData(data);
-    return sendJson(res, 200, {
-      ...result,
-      inventory: inventorySummary(data)
-    });
-  }
-
-  if (req.method === 'POST' && pathname === '/api/inventory/single-link') {
-    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
-    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
-    const url = assignSingleInventoryLink(data);
-    if (!url) return sendJson(res, 400, { error: 'No available inventory links left.' });
-    writeData(data);
-    return sendJson(res, 200, {
-      url,
       inventory: inventorySummary(data)
     });
   }
@@ -1285,11 +1109,19 @@ async function handleApi(req, res, pathname) {
     const bundle = data.bundles[checkMatch[1]];
     if (!bundle) return notFound(res);
     const body = await readBody(req);
-    const existing = findExistingSearch(data, bundle, body.searchKey || '');
+    const searchKey = normalizeSearchKey(body.searchKey || '');
+    const existing = findExistingSearch(data, bundle, searchKey);
     if (!existing) return sendJson(res, 200, { duplicate: false, bundle: publicBundle(data, bundle) });
+    if (!isVinSearchKey(searchKey)) {
+      return sendJson(res, 200, {
+        duplicate: false,
+        possibleMatch: true,
+        report: publicReport(existing.bundle, existing.report),
+        bundle: publicBundle(data, bundle)
+      });
+    }
     return sendJson(res, 200, {
       duplicate: true,
-      url: existing.report.url,
       report: publicReport(existing.bundle, existing.report),
       bundle: publicBundle(data, bundle)
     });
@@ -1303,20 +1135,16 @@ async function handleApi(req, res, pathname) {
     const body = await readBody(req);
     const searchDisplay = String(body.searchKey || '').trim();
     const searchKey = normalizeSearchKey(searchDisplay);
-    const report = bundle.reports[index];
-    if (report.used) {
-      return sendJson(res, 200, { duplicate: false, url: report.url, bundle: publicBundle(data, bundle) });
-    }
     const existing = searchKey ? findExistingSearch(data, bundle, searchKey) : null;
-    if (existing && existing.report !== bundle.reports[index]) {
+    if (existing && existing.report !== bundle.reports[index] && isVinSearchKey(searchKey)) {
       return sendJson(res, 200, {
         duplicate: true,
-        url: existing.report.url,
         report: publicReport(existing.bundle, existing.report),
         bundle: publicBundle(data, bundle)
       });
     }
 
+    const report = bundle.reports[index];
     if (searchDisplay) {
       report.searchDisplay = searchDisplay;
       report.searchKey = searchKey;
