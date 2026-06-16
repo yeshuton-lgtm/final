@@ -500,6 +500,7 @@ function pageHtml(token) {
     .stat strong { display: block; font-size: 30px; line-height: 1; margin-bottom: 8px; }
     .panel { padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
     .grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+    .search-grid { grid-template-columns: minmax(0, 1fr) 110px auto; }
     .field label { display: block; color: #344054; font-size: 12px; font-weight: 700; margin-bottom: 6px; text-transform: uppercase; }
     input { width: 100%; min-height: 40px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); font: inherit; padding: 8px 10px; }
     button { min-height: 40px; border: 1px solid transparent; border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer; font: 700 14px/1 Arial, Helvetica, sans-serif; padding: 10px 12px; white-space: nowrap; }
@@ -529,7 +530,7 @@ function pageHtml(token) {
       .shell { width: min(100% - 20px, 1180px); padding-top: 18px; }
       .topbar, .toolbar { align-items: stretch; flex-direction: column; }
       header.hero { grid-template-columns: 1fr; padding: 18px; }
-      .stats, .grid { grid-template-columns: 1fr; }
+      .stats, .grid, .search-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -570,10 +571,14 @@ function pageHtml(token) {
 
     <section class="panel">
       <h2>Check Before Using A Report</h2>
-      <div class="grid">
+      <div class="grid search-grid">
         <div class="field">
           <label for="searchInput">VIN or Plate</label>
           <input id="searchInput" autocomplete="off" placeholder="Enter VIN or plate before opening a new report" />
+        </div>
+        <div class="field">
+          <label for="plateStateInput">State</label>
+          <input id="plateStateInput" autocomplete="off" maxlength="2" placeholder="CA" />
         </div>
         <button id="checkSearchButton" type="button">Check History</button>
       </div>
@@ -624,6 +629,21 @@ function pageHtml(token) {
       return new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
     }
 
+    function normalizeClientSearch(value) {
+      return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    }
+
+    function looksLikeVin(value) {
+      return /^[A-HJ-NPR-Z0-9]{17}$/.test(normalizeClientSearch(value));
+    }
+
+    function getSearchValue() {
+      const rawSearch = document.getElementById('searchInput').value.trim();
+      const state = document.getElementById('plateStateInput').value.trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+      if (!rawSearch || looksLikeVin(rawSearch) || !state) return rawSearch;
+      return rawSearch + ' ' + state;
+    }
+
     function showNotice(type, text) {
       const notice = document.getElementById('searchNotice');
       notice.className = 'notice show ' + type;
@@ -664,7 +684,7 @@ function pageHtml(token) {
     }
 
     async function checkSearch() {
-      const searchValue = document.getElementById('searchInput').value.trim();
+      const searchValue = getSearchValue();
       clearSearchActions();
       if (!searchValue) {
         showNotice('error', 'Enter a VIN or plate first.');
@@ -680,8 +700,7 @@ function pageHtml(token) {
         showNotice('warn', 'Already checked VIN: ' + (result.report.searchDisplay || searchValue) + vehicle + '. Opening it will not use another report.');
         addSearchAction('Open Previous Report', '', () => reopenSearch(searchValue));
       } else if (result.possibleMatch) {
-        const vehicle = result.report.vehicle ? ' - ' + result.report.vehicle : '';
-        showNotice('warn', 'This plate was checked before: ' + (result.report.searchDisplay || searchValue) + vehicle + '. Plates can move to a different vehicle, so you can open the old report or run a new report.');
+        showNotice('warn', 'A previous plate record exists for ' + (result.report.searchDisplay || searchValue) + '. Plates can belong to different vehicles, so use the old report only if you are sure it is the same vehicle.');
         addSearchAction('Open Previous Report', 'secondary', () => reopenSearch(searchValue));
         addSearchAction('Run New Report Anyway', '', () => openNextReport(searchValue));
       } else {
@@ -723,7 +742,7 @@ function pageHtml(token) {
         alert('All reports have already been used.');
         return;
       }
-      await openReport(nextIndex, searchValue || document.getElementById('searchInput').value.trim());
+      await openReport(nextIndex, searchValue || getSearchValue());
     }
 
     async function reopenSearch(searchValue) {
