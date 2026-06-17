@@ -26,7 +26,9 @@ function blankReport(url, index) {
     vehicle: '',
     searchKey: '',
     searchDisplay: '',
-    openedAt: ''
+    openedAt: '',
+    vinMismatch: false,
+    vinMismatchMessage: ''
   };
 }
 
@@ -83,6 +85,8 @@ function migrateData(data) {
       report.searchKey = normalizeSearchKey(report.searchKey || report.searchDisplay || extractVinFromText(report.vehicle) || '');
       report.used = Boolean(report.used && report.searchKey);
       report.openedAt = String(report.openedAt || '');
+      report.vinMismatch = Boolean(report.vinMismatch);
+      report.vinMismatchMessage = String(report.vinMismatchMessage || '');
       if (!report.used) report.openedAt = '';
     });
   });
@@ -271,7 +275,16 @@ async function fillVehicleFromReport(report) {
   if (!report.used || report.vehicle) return false;
   try {
     const html = await fetchText(report.url);
-    const note = formatVehicleNote(extractReportDetails(html));
+    const details = extractReportDetails(html);
+    const searchedVin = isVinSearchKey(report.searchKey) ? normalizeSearchKey(report.searchKey) : '';
+    if (searchedVin && details.vin && searchedVin !== details.vin) {
+      report.vinMismatch = true;
+      report.vinMismatchMessage = `VIN mismatch: searched ${searchedVin}, report returned ${details.vin}`;
+    } else if (details.vin) {
+      report.vinMismatch = false;
+      report.vinMismatchMessage = '';
+    }
+    const note = formatVehicleNote(details);
     if (!note) return false;
     report.vehicle = note;
     if (!report.searchKey) {
@@ -369,7 +382,9 @@ function publicReport(bundle, report) {
     vehicle: report.vehicle,
     searchDisplay: report.searchDisplay,
     searchKey: report.searchKey,
-    openedAt: report.openedAt
+    openedAt: report.openedAt,
+    vinMismatch: Boolean(report.vinMismatch),
+    vinMismatchMessage: report.vinMismatchMessage || ''
   };
 }
 
@@ -451,6 +466,15 @@ function assignInventory(data, count, token) {
   });
 }
 
+function assignSingleInventoryLink(data) {
+  const item = data.inventory.find((stockItem) => stockItem.status === 'available');
+  if (!item) return null;
+  item.status = 'assigned';
+  item.assignedAt = new Date().toISOString();
+  item.assignedBundle = 'single-sale';
+  return item.url;
+}
+
 function findExistingSearch(data, bundle, rawSearchKey) {
   const searchKey = normalizeSearchKey(rawSearchKey);
   if (!searchKey) return null;
@@ -483,7 +507,8 @@ function pageHtml(token) {
     .shell { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 22px 0 42px; }
     .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 54px; margin-bottom: 18px; }
     .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; color: var(--navy); }
-    .brand-mark { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: var(--navy); color: #fff; font-size: 15px; }
+    .brand-mark { display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 10px; background: #fff; border: 1px solid var(--line); overflow: hidden; box-shadow: 0 8px 20px rgba(16,24,40,.08); }
+    .brand-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .secure { color: var(--muted); font-size: 13px; }
     header.hero { background: var(--navy); color: #fff; border-radius: 8px; padding: 22px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: end; margin-bottom: 14px; }
     h1 { margin: 0; font-size: 30px; line-height: 1.15; letter-spacing: 0; }
@@ -525,19 +550,36 @@ function pageHtml(token) {
     .used { background: #eef4ff; color: #174ea6; }
     .vehicle-input, .search-input { width: min(260px, 100%); }
     .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .mismatch { color: var(--danger); font-size: 12px; font-weight: 700; margin-top: 6px; }
     .footer { margin-top: 14px; font-size: 13px; line-height: 1.45; }
     @media (max-width: 760px) {
       .shell { width: min(100% - 20px, 1180px); padding-top: 18px; }
       .topbar, .toolbar { align-items: stretch; flex-direction: column; }
       header.hero { grid-template-columns: 1fr; padding: 18px; }
       .stats, .grid, .search-grid { grid-template-columns: 1fr; }
+      .brand { font-size: 15px; }
+      .secure { font-size: 12px; }
+      .table-wrap { overflow-x: visible; border: 0; background: transparent; }
+      table, thead, tbody, tr, th, td { display: block; width: 100%; }
+      table { min-width: 0; border-collapse: separate; border-spacing: 0; }
+      thead { display: none; }
+      tbody { display: grid; gap: 10px; }
+      tr { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+      td { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 10px; align-items: center; border-bottom: 1px solid var(--line); padding: 11px 12px; overflow-wrap: anywhere; }
+      td::before { content: attr(data-label); color: #344054; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+      tr:last-child td { border-bottom: 1px solid var(--line); }
+      td:last-child { border-bottom: 0; }
+      .slot { width: 100%; }
+      .vehicle-input, .search-input { width: 100%; min-width: 0; }
+      .actions { justify-content: stretch; }
+      .actions button { width: 100%; }
     }
   </style>
 </head>
 <body>
   <main class="shell">
     <div class="topbar">
-      <div class="brand"><span class="brand-mark">VR</span><span>Vehicle Reports Portal</span></div>
+      <div class="brand"><span class="brand-mark"><img src="https://vehiclereportnow.online/assets/favicon.png" alt="Vehicle Report Now" /></span><span>Vehicle Report Now</span></div>
       <div class="secure">Secure customer access</div>
     </div>
     <header class="hero">
@@ -710,7 +752,6 @@ function pageHtml(token) {
     }
 
     async function openReport(index, searchValue = '') {
-      const reportWindow = window.open('about:blank', '_blank');
       try {
         const result = await api('/api/bundle/' + TOKEN + '/open/' + index, {
           method: 'POST',
@@ -719,19 +760,16 @@ function pageHtml(token) {
         bundle = result.bundle;
         render();
         if (result.duplicate) {
-          if (reportWindow) reportWindow.close();
           showNotice('warn', 'This VIN was already checked. Open the previous report instead.');
           clearSearchActions();
           addSearchAction('Open Previous Report', '', () => reopenSearch(searchValue || lastCheckedSearch));
+          if (result.report && result.report.searchKey) {
+            await reopenSearch(result.report.searchDisplay || result.report.searchKey);
+          }
           return;
         }
-        if (reportWindow) {
-          reportWindow.location.href = result.url;
-        } else {
-          location.href = result.url;
-        }
+        location.href = result.url;
       } catch (error) {
-        if (reportWindow) reportWindow.close();
         alert(error.message || 'Unable to open this report. Please try again.');
       }
     }
@@ -746,19 +784,13 @@ function pageHtml(token) {
     }
 
     async function reopenSearch(searchValue) {
-      const reportWindow = window.open('about:blank', '_blank');
       try {
         const result = await api('/api/bundle/' + TOKEN + '/reopen-search', {
           method: 'POST',
           body: JSON.stringify({ searchKey: searchValue })
         });
-        if (reportWindow) {
-          reportWindow.location.href = result.url;
-        } else {
-          location.href = result.url;
-        }
+        location.href = result.url;
       } catch (error) {
-        if (reportWindow) reportWindow.close();
         alert(error.message || 'Unable to open previous report.');
       }
     }
@@ -815,15 +847,18 @@ function pageHtml(token) {
         const row = document.createElement('tr');
         const slot = document.createElement('td');
         slot.className = 'slot';
+        slot.dataset.label = 'Slot';
         slot.textContent = '#' + report.id;
 
         const status = document.createElement('td');
+        status.dataset.label = 'Status';
         const badge = document.createElement('span');
         badge.className = 'status ' + (report.used ? 'used' : 'available');
         badge.textContent = report.used ? 'Used' : 'Available';
         status.appendChild(badge);
 
         const search = document.createElement('td');
+        search.dataset.label = 'VIN / Plate';
         const searchInput = document.createElement('input');
         searchInput.className = 'search-input';
         searchInput.value = report.searchDisplay || '';
@@ -832,18 +867,27 @@ function pageHtml(token) {
         search.appendChild(searchInput);
 
         const vehicle = document.createElement('td');
+        vehicle.dataset.label = 'Vehicle note';
         const vehicleInput = document.createElement('input');
         vehicleInput.className = 'vehicle-input';
         vehicleInput.value = report.vehicle || '';
         vehicleInput.placeholder = 'Example: 2006 BMW 3 Series';
         vehicleInput.addEventListener('change', (event) => updateVehicle(index, event.target.value));
         vehicle.appendChild(vehicleInput);
+        if (report.vinMismatch) {
+          const mismatch = document.createElement('div');
+          mismatch.className = 'mismatch';
+          mismatch.textContent = report.vinMismatchMessage || 'VIN mismatch: report returned a different VIN.';
+          vehicle.appendChild(mismatch);
+        }
 
         const opened = document.createElement('td');
         opened.className = 'time';
+        opened.dataset.label = 'Opened';
         opened.textContent = formatDate(report.openedAt);
 
         const actions = document.createElement('td');
+        actions.dataset.label = 'Actions';
         const wrap = document.createElement('div');
         wrap.className = 'actions';
         const button = document.createElement('button');
@@ -871,15 +915,26 @@ function pageHtml(token) {
       bundle.account.history.forEach((report) => {
         const row = document.createElement('tr');
         const search = document.createElement('td');
+        search.dataset.label = 'VIN / Plate';
         search.textContent = report.searchDisplay || report.searchKey || 'Not saved';
         const vehicle = document.createElement('td');
+        vehicle.dataset.label = 'Vehicle note';
         vehicle.textContent = report.vehicle || '';
+        if (report.vinMismatch) {
+          const mismatch = document.createElement('div');
+          mismatch.className = 'mismatch';
+          mismatch.textContent = report.vinMismatchMessage || 'VIN mismatch: report returned a different VIN.';
+          vehicle.appendChild(mismatch);
+        }
         const bundleCell = document.createElement('td');
+        bundleCell.dataset.label = 'Bundle';
         bundleCell.textContent = report.bundleName || report.bundleToken;
         const opened = document.createElement('td');
         opened.className = 'time';
+        opened.dataset.label = 'Opened';
         opened.textContent = formatDate(report.openedAt);
         const actions = document.createElement('td');
+        actions.dataset.label = 'Actions';
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'secondary';
@@ -950,6 +1005,14 @@ function adminHtml() {
       </section>
 
       <section class="box">
+        <h2>Single Report Sale</h2>
+        <p class="muted">Use this for one-report customers. It takes one link from available inventory and gives you the raw CARFAX link to send.</p>
+        <button id="singleLink" type="button">Get single report link</button>
+        <button id="copySingleLink" class="secondary" type="button" disabled>Copy link</button>
+        <p class="result" id="singleResult"></p>
+      </section>
+
+      <section class="box">
         <h2>Create Bundle / Add Credits</h2>
         <label>Customer name</label>
         <input id="name" value="Customer" />
@@ -976,6 +1039,14 @@ function adminHtml() {
       if (!response.ok) throw new Error(data.error || 'Request failed');
       return data;
     }
+    async function copyText(value) {
+      try {
+        await navigator.clipboard.writeText(value);
+        return true;
+      } catch (error) {
+        return false;
+      }
+    }
     async function loadInventory() {
       const data = await api('/api/inventory');
       document.getElementById('stockAvailable').textContent = data.available;
@@ -995,6 +1066,26 @@ function adminHtml() {
       } catch (error) {
         document.getElementById('stockResult').textContent = error.message;
       }
+    });
+    document.getElementById('singleLink').addEventListener('click', async () => {
+      if (!confirm('Take 1 available report link from inventory for a single-report sale?')) return;
+      try {
+        const data = await api('/api/inventory/single-link', { method: 'POST' });
+        const copied = await copyText(data.url);
+        document.getElementById('singleResult').innerHTML = 'Single report link: <a href="' + data.url + '" target="_blank" rel="noopener">' + data.url + '</a><br><span class="muted">' + (copied ? 'Copied to clipboard. ' : 'Use Copy link if it was not copied. ') + 'Remaining stock: ' + data.inventory.available + '.</span>';
+        const copyButton = document.getElementById('copySingleLink');
+        copyButton.disabled = false;
+        copyButton.dataset.url = data.url;
+        await loadInventory();
+      } catch (error) {
+        document.getElementById('singleResult').textContent = error.message;
+      }
+    });
+    document.getElementById('copySingleLink').addEventListener('click', async () => {
+      const url = document.getElementById('copySingleLink').dataset.url || '';
+      if (!url) return;
+      const copied = await copyText(url);
+      document.getElementById('singleResult').innerHTML = 'Single report link: <a href="' + url + '" target="_blank" rel="noopener">' + url + '</a><br><span class="muted">' + (copied ? 'Copied to clipboard.' : 'Copy failed. Select and copy the link manually.') + '</span>';
     });
     document.getElementById('create').addEventListener('click', async () => {
       const customerName = document.getElementById('name').value.trim();
@@ -1044,6 +1135,47 @@ async function handleApi(req, res, pathname) {
       skipped: result.skipped.length,
       inventory: inventorySummary(data)
     });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/inventory/single-link') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    const url = assignSingleInventoryLink(data);
+    if (!url) return sendJson(res, 400, { error: 'No available inventory links left.' });
+    writeData(data);
+    return sendJson(res, 200, {
+      url,
+      inventory: inventorySummary(data)
+    });
+  }
+
+  if (req.method === 'GET' && pathname === '/api/admin/search') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    const query = normalizeSearchKey(requestUrl.searchParams.get('q') || requestUrl.searchParams.get('search') || '');
+    const matches = [];
+    Object.values(data.bundles).forEach((bundle) => {
+      bundle.reports.forEach((report) => {
+        const haystack = [
+          report.searchKey,
+          report.searchDisplay,
+          report.vehicle,
+          report.url,
+          bundle.token,
+          bundle.customerName,
+          bundle.accountKey
+        ].join(' ').toUpperCase();
+        if (!query || haystack.includes(query)) {
+          matches.push({
+            bundle: bundle.token,
+            customerName: bundle.customerName,
+            accountLabel: maskAccount(bundle.accountKey),
+            report: publicReport(bundle, report)
+          });
+        }
+      });
+    });
+    return sendJson(res, 200, { query, matches });
   }
 
   if (req.method === 'POST' && pathname === '/api/bundle') {
@@ -1096,7 +1228,9 @@ async function handleApi(req, res, pathname) {
           vehicle,
           searchDisplay,
           searchKey: normalizeSearchKey(searchDisplay),
-          openedAt: item.openedAt ? String(item.openedAt) : ''
+          openedAt: item.openedAt ? String(item.openedAt) : '',
+          vinMismatch: Boolean(item.vinMismatch),
+          vinMismatchMessage: String(item.vinMismatchMessage || '')
         };
       })
     };
