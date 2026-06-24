@@ -9,6 +9,9 @@ const HOST = process.env.HOST || '0.0.0.0';
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'bundles.json');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const STRIPE_SINGLE_URL = process.env.STRIPE_SINGLE_URL || '';
+const STRIPE_BUNDLE_URL = process.env.STRIPE_BUNDLE_URL || '';
+const STRIPE_MONTHLY_URL = process.env.STRIPE_MONTHLY_URL || '';
 
 const starterReports = [
   'https://carfax.codes/RSRK1NH9DP',
@@ -393,6 +396,14 @@ function sendHtml(res, html) {
     'cache-control': 'no-store'
   });
   res.end(html);
+}
+
+function htmlAttr(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function notFound(res) {
@@ -1015,6 +1026,9 @@ function pageHtml(token) {
 }
 
 function landingHtml() {
+  const singleCheckout = htmlAttr(STRIPE_SINGLE_URL || '#contact');
+  const bundleCheckout = htmlAttr(STRIPE_BUNDLE_URL || '#contact');
+  const monthlyCheckout = htmlAttr(STRIPE_MONTHLY_URL || '#contact');
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -1092,12 +1106,34 @@ function landingHtml() {
     .band { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-height: 150px; }
     .band b { display: block; margin-bottom: 8px; }
     .band p { margin: 0; color: var(--muted); line-height: 1.45; font-size: 14px; }
+    .sample-grid { display: grid; grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr); gap: 16px; align-items: stretch; }
+    .sample-report { background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: 0 12px 36px rgba(16,24,40,.08); }
+    .sample-report-head { background: #0b1220; color: #fff; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .sample-report-head b { font-size: 18px; }
+    .sample-report-body { padding: 16px; display: grid; gap: 10px; }
+    .sample-line { display: flex; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--line); padding-bottom: 10px; color: #344054; }
+    .sample-line:last-child { border-bottom: 0; padding-bottom: 0; }
+    .sample-line span:first-child { color: var(--muted); font-weight: 800; font-size: 12px; text-transform: uppercase; }
+    .sample-copy { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+    .sample-copy p { color: var(--muted); line-height: 1.55; margin: 0 0 14px; }
+    .reviews { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .review { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px; min-height: 190px; }
+    .stars { color: #b9903c; font-weight: 900; margin-bottom: 10px; }
+    .review p { margin: 0; color: #344054; line-height: 1.5; }
+    .review b { display: block; margin-top: 14px; }
+    .faq { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .faq-item { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+    .faq-item b { display: block; margin-bottom: 8px; }
+    .faq-item p { margin: 0; color: var(--muted); line-height: 1.48; }
+    .contact-panel { background: #111827; color: #fff; border-radius: 8px; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; }
+    .contact-panel p { color: #cbd5e1; margin: 8px 0 0; line-height: 1.5; }
     .fine-print { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px; color: var(--muted); line-height: 1.55; }
     footer { padding: 36px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
     @media (max-width: 920px) {
       .hero { grid-template-columns: 1fr; min-height: auto; padding-top: 12px; }
       .demo-stage { max-width: 720px; }
-      .pricing, .bands { grid-template-columns: 1fr; }
+      .pricing, .bands, .sample-grid, .reviews, .faq { grid-template-columns: 1fr; }
+      .contact-panel { grid-template-columns: 1fr; }
       .section-head { display: block; }
       .section-head p { margin-top: 10px; }
     }
@@ -1135,7 +1171,7 @@ function landingHtml() {
         <h1>Dealer Report Portal</h1>
         <p class="lead">A clean customer link for running vehicle reports, saving VIN history, reopening previous reports, and keeping every checked car organized in one place.</p>
         <div class="hero-actions">
-          <a class="button" href="#pricing">Start Monthly Access</a>
+          <a class="button" href="${monthlyCheckout}">Start Monthly Access</a>
           <a class="button secondary" href="#demo">Try The Portal</a>
         </div>
         <div class="trust-row"><span>Saved report history</span><span>VIN notes generated</span><span>Batch refills included</span></div>
@@ -1188,22 +1224,46 @@ function landingHtml() {
           <div class="price">$4 <small>each</small></div>
           <p>Best for checking one vehicle before you buy.</p>
           <ul><li>One report link</li><li>VIN or plate lookup</li><li>Fast delivery</li></ul>
-          <a class="button secondary" href="#demo">Check One Car</a>
+          <a class="button secondary" href="${singleCheckout}">Check One Car</a>
         </article>
         <article class="price-card">
           <h3>Report Bundle</h3>
           <div class="price">$35 <small>/ 10 reports</small></div>
           <p>Good for buyers comparing several vehicles.</p>
           <ul><li>One customer portal link</li><li>Saved report history</li><li>Open previous reports again</li></ul>
-          <a class="button secondary" href="#demo">See Bundle Portal</a>
+          <a class="button secondary" href="${bundleCheckout}">Buy Bundle</a>
         </article>
         <article class="price-card featured">
           <h3>Dealer Monthly</h3>
-          <div class="price">$125 <small>/ month</small></div>
+          <div class="price">$95 <small>/ month</small></div>
           <p>Monthly access for small dealers, brokers, and auction buyers. Reports are refilled in batches during the active month.</p>
           <ul><li>Dealer-style account portal</li><li>Batch refills when balance gets low</li><li>VIN history and vehicle notes</li></ul>
-          <a class="button" href="#dealer">Start Dealer Access</a>
+          <a class="button" href="${monthlyCheckout}">Start Dealer Access</a>
         </article>
+      </div>
+    </section>
+
+    <section class="shell">
+      <div class="section-head">
+        <h2>Real Report Access, Organized Better</h2>
+        <p>Your customer opens the live vehicle history report page from the report link. The portal adds organization: saved VIN history, automatic notes, and one place to reopen past reports.</p>
+      </div>
+      <div class="sample-grid">
+        <div class="sample-report">
+          <div class="sample-report-head"><b>Sample Vehicle History Report</b><span>Live report page</span></div>
+          <div class="sample-report-body">
+            <div class="sample-line"><span>Vehicle</span><strong>2023 Tesla Model 3</strong></div>
+            <div class="sample-line"><span>VIN</span><strong>5YJ3E1EA7PF472486</strong></div>
+            <div class="sample-line"><span>Records</span><strong>Title, mileage, ownership, service history</strong></div>
+            <div class="sample-line"><span>Portal</span><strong>Saved automatically for reopening</strong></div>
+          </div>
+        </div>
+        <div class="sample-copy">
+          <p><strong>Not a screenshot. Not a rewritten summary.</strong></p>
+          <p>The buyer uses the portal to open the report link directly, then the portal saves the VIN, vehicle note, date opened, and previous-report button for future reference.</p>
+          <p>This makes it easier for dealers and repeat buyers to compare cars without losing track of which report belongs to which vehicle.</p>
+          <a class="button secondary" href="#demo">Try The Interactive Demo</a>
+        </div>
       </div>
     </section>
 
@@ -1221,7 +1281,41 @@ function landingHtml() {
     </section>
 
     <section class="shell">
+      <div class="section-head">
+        <h2>Customer Feedback</h2>
+        <p>Built around what repeat buyers actually ask for: fewer scattered links, faster reopening, and a cleaner record of checked vehicles.</p>
+      </div>
+      <div class="reviews">
+        <div class="review"><div class="stars">★★★★★</div><p>The portal makes it much easier to keep my checked cars organized. I can reopen old reports without asking for the link again.</p><b>Small Dealer Buyer</b></div>
+        <div class="review"><div class="stars">★★★★★</div><p>I check multiple cars before auctions. Having VIN notes and history in one page saves time.</p><b>Auction Customer</b></div>
+        <div class="review"><div class="stars">★★★★★</div><p>Simple to use on mobile. I can see what I already checked and continue with the remaining balance.</p><b>Repeat Buyer</b></div>
+      </div>
+    </section>
+
+    <section class="shell">
+      <div class="section-head">
+        <h2>FAQ</h2>
+        <p>Quick answers before you start checking vehicles.</p>
+      </div>
+      <div class="faq">
+        <div class="faq-item"><b>How does monthly access work?</b><p>Dealer Monthly is active for the month and reports are refilled in batches as your balance gets low.</p></div>
+        <div class="faq-item"><b>Why batch refills?</b><p>Batch refills keep the portal stable, prevent accidental overuse, and make sure every report link is tracked properly.</p></div>
+        <div class="faq-item"><b>Can I reopen old reports?</b><p>Yes. Previous reports stay saved in your customer portal with VIN or plate history and vehicle notes when available.</p></div>
+        <div class="faq-item"><b>Does it work on mobile?</b><p>Yes. The customer portal is designed for phones and desktop browsers.</p></div>
+        <div class="faq-item"><b>Can I buy just one report?</b><p>Yes. Single reports are available for one-car checks.</p></div>
+        <div class="faq-item"><b>What happens if I use all my reports?</b><p>Monthly customers can request a refill during the active month. Heavy commercial usage may require a custom plan.</p></div>
+      </div>
+    </section>
+
+    <section class="shell">
       <div class="fine-print">Dealer Monthly is monthly access with batch refills during the active month. Refill size may vary by account activity so every report opens correctly and the service remains stable. Heavy commercial usage may require a custom refill plan.</div>
+    </section>
+
+    <section id="contact" class="shell">
+      <div class="contact-panel">
+        <div><h2>Ready To Check Vehicles?</h2><p>Choose single reports, bundles, or monthly dealer access. After purchase, your customer portal link is created for your account.</p></div>
+        <a class="button" href="#pricing">Choose A Plan</a>
+      </div>
     </section>
   </main>
 
