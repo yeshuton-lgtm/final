@@ -290,12 +290,39 @@ function formatVehicleNote(details) {
   return parts.join('\n').slice(0, 160);
 }
 
+function titleCase(value) {
+  return String(value || '').toLowerCase().replace(/\b[a-z]/g, (char) => char.toUpperCase());
+}
+
+async function decodeVehicleFromVin(vin) {
+  const cleanVin = normalizeSearchKey(vin);
+  if (!isVinSearchKey(cleanVin)) return '';
+  try {
+    const body = await fetchText(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${cleanVin}?format=json`);
+    const data = JSON.parse(body);
+    const details = data && data.Results && data.Results[0] ? data.Results[0] : {};
+    const note = [
+      details.ModelYear,
+      titleCase(details.Make),
+      titleCase(details.Model),
+      titleCase(details.Trim)
+    ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+    return note ? `${note}\nVIN: ${cleanVin}`.slice(0, 160) : '';
+  } catch (error) {
+    console.log(`VIN decode failed for ${cleanVin}: ${error.message}`);
+    return '';
+  }
+}
+
 async function fillVehicleFromReport(report) {
   if (!report.used || report.vehicle) return false;
   if (isServerSideAutoExtractionUnsupported(report.url)) {
     report.vinMismatch = false;
     report.vinMismatchMessage = '';
-    return false;
+    const note = await decodeVehicleFromVin(report.searchKey);
+    if (!note) return false;
+    report.vehicle = note;
+    return true;
   }
   try {
     const html = await fetchText(report.url);
