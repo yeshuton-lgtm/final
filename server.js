@@ -442,6 +442,19 @@ function getAccountBundles(data, bundle) {
   return Object.values(data.bundles).filter((item) => item.accountKey === bundle.accountKey);
 }
 
+function findNextAccountReport(data, bundle) {
+  const accountBundles = getAccountBundles(data, bundle);
+  const orderedBundles = [
+    bundle,
+    ...accountBundles.filter((item) => item !== bundle)
+  ];
+  for (const accountBundle of orderedBundles) {
+    const index = accountBundle.reports.findIndex((report) => !report.searchKey);
+    if (index !== -1) return { bundle: accountBundle, report: accountBundle.reports[index], index };
+  }
+  return null;
+}
+
 function publicReport(bundle, report) {
   return {
     bundleToken: bundle.token,
@@ -844,12 +857,26 @@ function pageHtml(token) {
     }
 
     async function openNextReport(searchValue = '') {
-      const nextIndex = bundle.reports.findIndex((report) => !report.searchKey);
-      if (nextIndex === -1) {
-        alert('All reports have already been used.');
-        return;
+      try {
+        const result = await api('/api/bundle/' + TOKEN + '/open-next', {
+          method: 'POST',
+          body: JSON.stringify({ searchKey: searchValue || getSearchValue() })
+        });
+        bundle = result.bundle;
+        render();
+        if (result.duplicate) {
+          showNotice('warn', 'This VIN was already checked. Open the previous report instead.');
+          clearSearchActions();
+          addSearchAction('Open Previous Report', '', () => reopenSearch(searchValue || getSearchValue()));
+          if (result.report && result.report.searchKey) {
+            await reopenSearch(result.report.searchDisplay || result.report.searchKey);
+          }
+          return;
+        }
+        location.href = result.url;
+      } catch (error) {
+        alert(error.message || 'Unable to open the next report. Please try again.');
       }
-      await openReport(nextIndex, searchValue || getSearchValue());
     }
 
     async function reopenSearch(searchValue) {
@@ -897,7 +924,8 @@ function pageHtml(token) {
       document.getElementById('usedCount').textContent = bundle.used;
       document.getElementById('remainingCount').textContent = bundle.remaining;
       document.getElementById('heroRemaining').textContent = bundle.account.accountKey ? bundle.account.remaining : bundle.remaining;
-      document.getElementById('useNextButton').disabled = bundle.remaining === 0;
+      const availableRemaining = bundle.account.accountKey ? bundle.account.remaining : bundle.remaining;
+      document.getElementById('useNextButton').disabled = availableRemaining === 0;
       document.getElementById('accountInput').value = bundle.accountKey || '';
 
       const account = bundle.account;
@@ -1697,6 +1725,55 @@ async function handleApi(req, res, pathname) {
     return sendJson(res, 200, {
       duplicate: true,
       report: publicReport(existing.bundle, existing.report),
+      bundle: publicBundle(data, bundle)
+    });
+  }
+
+  const openNextMatch = pathname.match(/^\/api\/bundle\/([^/]+)\/open-next$/);
+  if (req.method === 'POST' && openNextMatch) {
+    const bundle = data.bundles[openNextMatch[1]];
+    if (!bundle) return notFound(res);
+    const body = await readBody(req);
+    const searchDisplay = String(body.searchKey || '').trim();
+    const searchKey = normalizeSearchKey(searchDisplay);
+    const existing = searchKey ? findExistingSearch(data, bundle, searchKey) : null;
+    if (existing && isVinSearchKey(searchKey)) {
+      return sendJson(res, 200, {
+        duplicate: true,
+        report: publicReport(existing.bundle, existing.report),
+        bundle: publicBundle(data, bundle)
+      });
+    }
+
+    const next = findNextAccountReport(data, bundle);
+    if (!next) return sendJson(res, 400, { error: 'All reports have already been used.' });
+
+    const report = next.report;
+    if (searchDisplay) {
+      report.searchDisplay = searchDisplay.slice(0, 40);
+      report.searchKey = searchKey;
+      report.used = true;
+      if (!report.openedAt) report.openedAt = new Date().toISOString();
+    } else {
+      report.searchDisplay = '';
+      report.searchKey = '';
+      report.used = false;
+      report.openedAt = '';
+    }
+    writeData(data);
+    if (report.used && !report.vehicle) {
+      setTimeout(async () => {
+        const latestData = readData();
+        const latestBundle = latestData.bundles[next.bundle.token];
+        const latestReport = latestBundle && latestBundle.reports[next.index];
+        if (latestReport && await fillVehicleFromReport(latestReport)) writeData(latestData);
+      }, 30000).unref();
+    }
+    return sendJson(res, 200, {
+      duplicate: false,
+      url: report.url,
+      selectedBundle: next.bundle.token,
+      selectedReportId: report.id,
       bundle: publicBundle(data, bundle)
     });
   }
