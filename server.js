@@ -922,7 +922,7 @@ function pageHtml(token) {
         const vehicleInput = document.createElement('input');
         vehicleInput.className = 'vehicle-input';
         vehicleInput.value = report.vehicle || '';
-        vehicleInput.placeholder = 'Example: 2006 BMW 3 Series';
+        vehicleInput.placeholder = '';
         vehicleInput.addEventListener('change', (event) => updateVehicle(index, event.target.value));
         vehicle.appendChild(vehicleInput);
         if (report.vinMismatch) {
