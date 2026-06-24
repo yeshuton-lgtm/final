@@ -676,9 +676,9 @@ function pageHtml(token) {
     </header>
 
     <section class="stats">
-      <div class="stat"><strong id="totalCount">0</strong><span>Total reports in this bundle</span></div>
-      <div class="stat"><strong id="usedCount">0</strong><span>Used in this bundle</span></div>
-      <div class="stat"><strong id="remainingCount">0</strong><span>Remaining in this bundle</span></div>
+      <div class="stat"><strong id="totalCount">0</strong><span id="totalLabel">Total reports in this bundle</span></div>
+      <div class="stat"><strong id="usedCount">0</strong><span id="usedLabel">Used in this bundle</span></div>
+      <div class="stat"><strong id="remainingCount">0</strong><span id="remainingLabel">Remaining in this bundle</span></div>
     </section>
 
     <section class="panel">
@@ -920,10 +920,17 @@ function pageHtml(token) {
 
     function render() {
       if (!bundle) return;
-      document.getElementById('totalCount').textContent = bundle.total;
-      document.getElementById('usedCount').textContent = bundle.used;
-      document.getElementById('remainingCount').textContent = bundle.remaining;
-      document.getElementById('heroRemaining').textContent = bundle.account.accountKey ? bundle.account.remaining : bundle.remaining;
+      const hasAccount = Boolean(bundle.account.accountKey);
+      const displayTotal = hasAccount ? bundle.account.total : bundle.total;
+      const displayUsed = hasAccount ? bundle.account.used : bundle.used;
+      const displayRemaining = hasAccount ? bundle.account.remaining : bundle.remaining;
+      document.getElementById('totalCount').textContent = displayTotal;
+      document.getElementById('usedCount').textContent = displayUsed;
+      document.getElementById('remainingCount').textContent = displayRemaining;
+      document.getElementById('totalLabel').textContent = hasAccount ? 'Total reports in account' : 'Total reports in this bundle';
+      document.getElementById('usedLabel').textContent = hasAccount ? 'Used in account' : 'Used in this bundle';
+      document.getElementById('remainingLabel').textContent = hasAccount ? 'Remaining in account' : 'Remaining in this bundle';
+      document.getElementById('heroRemaining').textContent = displayRemaining;
       const availableRemaining = bundle.account.accountKey ? bundle.account.remaining : bundle.remaining;
       document.getElementById('useNextButton').disabled = availableRemaining === 0;
       document.getElementById('accountInput').value = bundle.accountKey || '';
