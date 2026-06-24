@@ -87,6 +87,11 @@ function migrateData(data) {
       report.openedAt = String(report.openedAt || '');
       report.vinMismatch = Boolean(report.vinMismatch);
       report.vinMismatchMessage = String(report.vinMismatchMessage || '');
+      if (isServerSideAutoExtractionUnsupported(report.url) && (report.vinMismatch || isKnownVinfaxPlaceholder(report.vehicle))) {
+        report.vehicle = '';
+        report.vinMismatch = false;
+        report.vinMismatchMessage = '';
+      }
       if (!report.used) report.openedAt = '';
     });
   });
@@ -116,6 +121,20 @@ function normalizeSearchKey(value) {
 function extractVinFromText(value) {
   const match = String(value || '').toUpperCase().match(/[A-HJ-NPR-Z0-9]{17}/);
   return match ? match[0] : '';
+}
+
+function isServerSideAutoExtractionUnsupported(url) {
+  try {
+    const hostname = new URL(String(url || '')).hostname.toLowerCase();
+    return hostname === 'vinfax.co' || hostname.endsWith('.vinfax.co');
+  } catch (error) {
+    return false;
+  }
+}
+
+function isKnownVinfaxPlaceholder(value) {
+  const text = String(value || '');
+  return /19XFC2F54GE008801/i.test(text) || /Honda Civic Lx 2016/i.test(text);
 }
 
 function decodeHtmlEntities(value) {
@@ -273,6 +292,11 @@ function formatVehicleNote(details) {
 
 async function fillVehicleFromReport(report) {
   if (!report.used || report.vehicle) return false;
+  if (isServerSideAutoExtractionUnsupported(report.url)) {
+    report.vinMismatch = false;
+    report.vinMismatchMessage = '';
+    return false;
+  }
   try {
     const html = await fetchText(report.url);
     const details = extractReportDetails(html);
