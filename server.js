@@ -87,7 +87,7 @@ function migrateData(data) {
       report.openedAt = String(report.openedAt || '');
       report.vinMismatch = Boolean(report.vinMismatch);
       report.vinMismatchMessage = String(report.vinMismatchMessage || '');
-      if (isServerSideAutoExtractionUnsupported(report.url) && (report.vinMismatch || isKnownVinfaxPlaceholder(report.vehicle))) {
+      if (isServerSideAutoExtractionUnsupported(report.url) && (report.vinMismatch || (isKnownVinfaxPlaceholder(report.vehicle) && normalizeSearchKey(report.searchKey) !== VINFAX_PLACEHOLDER_VIN))) {
         report.vehicle = '';
         report.vinMismatch = false;
         report.vinMismatchMessage = '';
@@ -123,6 +123,8 @@ function extractVinFromText(value) {
   return match ? match[0] : '';
 }
 
+const VINFAX_PLACEHOLDER_VIN = '19XFC2F54GE008801';
+
 function isServerSideAutoExtractionUnsupported(url) {
   try {
     const hostname = new URL(String(url || '')).hostname.toLowerCase();
@@ -134,7 +136,7 @@ function isServerSideAutoExtractionUnsupported(url) {
 
 function isKnownVinfaxPlaceholder(value) {
   const text = String(value || '');
-  return /19XFC2F54GE008801/i.test(text) || /Honda Civic Lx 2016/i.test(text);
+  return new RegExp(VINFAX_PLACEHOLDER_VIN, 'i').test(text) || /Honda Civic Lx 2016/i.test(text);
 }
 
 function decodeHtmlEntities(value) {
@@ -294,6 +296,10 @@ function titleCase(value) {
   return String(value || '').toLowerCase().replace(/\b[a-z]/g, (char) => char.toUpperCase());
 }
 
+function isCleanVinDecode(details) {
+  return String(details && details.ErrorCode || '') === '0';
+}
+
 async function decodeVehicleFromVin(vin) {
   const cleanVin = normalizeSearchKey(vin);
   if (!isVinSearchKey(cleanVin)) return '';
@@ -301,6 +307,7 @@ async function decodeVehicleFromVin(vin) {
     const body = await fetchText(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${cleanVin}?format=json`);
     const data = JSON.parse(body);
     const details = data && data.Results && data.Results[0] ? data.Results[0] : {};
+    if (!isCleanVinDecode(details)) return '';
     const note = [
       details.ModelYear,
       titleCase(details.Make),
