@@ -1014,6 +1014,275 @@ function pageHtml(token) {
 </html>`;
 }
 
+function landingHtml() {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vehicle Report Now | Dealer Report Portal</title>
+  <style>
+    :root { color-scheme: light; --ink:#101828; --muted:#5b6678; --line:#d9e0ea; --panel:#fff; --soft:#f5f7fa; --navy:#111827; --blue:#185bd8; --blue-dark:#1247ad; --green:#087443; --amber:#9a5b00; --gold:#c08a28; font-family: Arial, Helvetica, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f4f6f8; color: var(--ink); }
+    a { color: inherit; text-decoration: none; }
+    .shell { width: min(1160px, calc(100% - 32px)); margin: 0 auto; }
+    .topbar { height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+    .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; }
+    .brand-mark { width: 40px; height: 40px; border-radius: 8px; overflow: hidden; background: #fff; border: 1px solid var(--line); }
+    .brand-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .nav { display: flex; gap: 18px; color: var(--muted); font-size: 14px; }
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; border-radius: 6px; border: 1px solid transparent; padding: 10px 14px; background: var(--blue); color: #fff; font-weight: 800; cursor: pointer; }
+    .button:hover { background: var(--blue-dark); }
+    .button.secondary { background: #fff; color: var(--ink); border-color: var(--line); }
+    .hero { min-height: calc(100vh - 68px); display: grid; grid-template-columns: minmax(0, .88fr) minmax(420px, 1.12fr); gap: 32px; align-items: center; padding: 24px 0 54px; }
+    .eyebrow { color: var(--gold); font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 10px; }
+    h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: .96; letter-spacing: 0; max-width: 720px; }
+    .lead { margin: 18px 0 0; color: #344054; font-size: 18px; line-height: 1.55; max-width: 640px; }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
+    .trust-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; color: var(--muted); font-size: 13px; }
+    .trust-row span { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 8px 10px; }
+    .mascot-card { display: flex; align-items: center; gap: 14px; width: min(100%, 520px); margin-top: 22px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 12px; box-shadow: 0 10px 30px rgba(16,24,40,.08); }
+    .mascot-card img { width: 108px; height: 124px; border-radius: 8px; object-fit: cover; object-position: center 12%; background: #fff; border: 1px solid #edf0f4; }
+    .mascot-card b { display: block; margin-bottom: 5px; }
+    .mascot-card span { display: block; color: var(--muted); font-size: 14px; line-height: 1.4; }
+    .demo-stage { position: relative; border-radius: 8px; background: #e8edf4; border: 1px solid #ccd5e2; padding: 14px; box-shadow: 0 20px 60px rgba(16,24,40,.16); }
+    .browser-bar { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 6px 12px; color: #667085; font-size: 12px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; display: inline-block; }
+    .portal { background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .portal-head { background: var(--navy); color: #fff; padding: 16px; display: flex; justify-content: space-between; gap: 14px; align-items: center; }
+    .portal-head strong { display: block; font-size: 22px; }
+    .portal-head span { color: #cbd5e1; font-size: 13px; }
+    .mini-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 12px; background: #f8fafc; border-bottom: 1px solid var(--line); }
+    .mini-stat { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 10px; }
+    .mini-stat b { display: block; font-size: 22px; }
+    .mini-stat span { color: var(--muted); font-size: 12px; }
+    .demo-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 12px; border-bottom: 1px solid var(--line); }
+    input { width: 100%; min-height: 40px; border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; font: inherit; }
+    .demo-note { display: none; margin: 0 12px 12px; border-radius: 8px; padding: 10px; font-size: 13px; line-height: 1.45; }
+    .demo-note.show { display: block; }
+    .demo-note.ok { background: #edf8f2; color: var(--green); }
+    .demo-note.warn { background: #fff7e6; color: var(--amber); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: middle; }
+    th { background: #f8fafc; color: #344054; font-size: 11px; text-transform: uppercase; }
+    .pill { display: inline-flex; border-radius: 999px; background: #eef4ff; color: #174ea6; font-size: 12px; font-weight: 800; padding: 5px 8px; }
+    .demo-actions { display: flex; gap: 8px; padding: 12px; flex-wrap: wrap; }
+    .scribble { position: absolute; color: #111827; font-family: "Comic Sans MS", "Trebuchet MS", Arial, sans-serif; font-weight: 800; font-size: 15px; line-height: 1.15; transform: rotate(-4deg); pointer-events: none; }
+    .scribble svg { display: block; width: 92px; height: 38px; margin-top: 4px; }
+    .scribble path { fill: none; stroke: #c08a28; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    .scribble.one { top: 72px; right: -18px; }
+    .scribble.two { bottom: 128px; left: -20px; transform: rotate(5deg); }
+    .scribble.three { bottom: 26px; right: 16px; transform: rotate(-2deg); }
+    section { padding: 64px 0; }
+    .section-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
+    h2 { margin: 0; font-size: 32px; line-height: 1.12; letter-spacing: 0; }
+    .section-head p { margin: 0; color: var(--muted); max-width: 560px; line-height: 1.5; }
+    .pricing { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .price-card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: flex; flex-direction: column; min-height: 280px; }
+    .price-card.featured { border-color: #b9903c; box-shadow: 0 14px 40px rgba(192,138,40,.14); }
+    .price-card h3 { margin: 0 0 8px; font-size: 20px; }
+    .price { font-size: 36px; font-weight: 900; margin: 4px 0 6px; }
+    .price small { color: var(--muted); font-size: 14px; font-weight: 700; }
+    .price-card p { color: var(--muted); line-height: 1.45; margin: 0 0 16px; }
+    .price-card ul { margin: 0 0 18px; padding: 0; list-style: none; display: grid; gap: 10px; color: #344054; font-size: 14px; }
+    .price-card li::before { content: "Check"; color: var(--green); font-weight: 900; margin-right: 8px; }
+    .price-card .button { margin-top: auto; }
+    .bands { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .band { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-height: 150px; }
+    .band b { display: block; margin-bottom: 8px; }
+    .band p { margin: 0; color: var(--muted); line-height: 1.45; font-size: 14px; }
+    .fine-print { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px; color: var(--muted); line-height: 1.55; }
+    footer { padding: 36px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+    @media (max-width: 920px) {
+      .hero { grid-template-columns: 1fr; min-height: auto; padding-top: 12px; }
+      .demo-stage { max-width: 720px; }
+      .pricing, .bands { grid-template-columns: 1fr; }
+      .section-head { display: block; }
+      .section-head p { margin-top: 10px; }
+    }
+    @media (max-width: 640px) {
+      .shell { width: min(100% - 20px, 1160px); }
+      .nav { display: none; }
+      h1 { font-size: 42px; }
+      .lead { font-size: 16px; }
+      .mascot-card { align-items: flex-start; }
+      .mascot-card img { width: 88px; height: 104px; }
+      .portal-head, .demo-controls { grid-template-columns: 1fr; display: grid; }
+      .mini-stats { grid-template-columns: 1fr; }
+      table, thead, tbody, tr, th, td { display: block; width: 100%; }
+      thead { display: none; }
+      tbody { display: grid; gap: 8px; padding: 10px; }
+      tr { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+      td { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+      td::before { content: attr(data-label); color: #344054; font-size: 11px; font-weight: 900; text-transform: uppercase; }
+      td:last-child { border-bottom: 0; }
+      .scribble { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="shell topbar">
+    <a class="brand" href="/"><span class="brand-mark"><img src="/assets/car-fox.jpg" alt="Vehicle Report Now" /></span><span>Vehicle Report Now</span></a>
+    <nav class="nav"><a href="#demo">Portal Demo</a><a href="#pricing">Pricing</a><a href="#dealer">Dealer Access</a></nav>
+    <a class="button secondary" href="#pricing">View Plans</a>
+  </header>
+
+  <main>
+    <div class="shell hero">
+      <div>
+        <p class="eyebrow">Vehicle history reports for active buyers</p>
+        <h1>Dealer Report Portal</h1>
+        <p class="lead">A clean customer link for running vehicle reports, saving VIN history, reopening previous reports, and keeping every checked car organized in one place.</p>
+        <div class="hero-actions">
+          <a class="button" href="#pricing">Start Monthly Access</a>
+          <a class="button secondary" href="#demo">Try The Portal</a>
+        </div>
+        <div class="trust-row"><span>Saved report history</span><span>VIN notes generated</span><span>Batch refills included</span></div>
+        <div class="mascot-card">
+          <img src="/assets/car-fox.jpg" alt="Vehicle Report Now mascot" />
+          <div><b>Made for serious car buyers</b><span>Give customers one clean portal instead of a pile of separate report links.</span></div>
+        </div>
+      </div>
+
+      <div id="demo" class="demo-stage" aria-label="Interactive bundle demo">
+        <div class="browser-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>secure customer portal</span></div>
+        <div class="portal">
+          <div class="portal-head">
+            <div><strong>Vehicle Report Bundle</strong><span>Customer account: 32***55</span></div>
+            <div><strong id="demoRemaining">6</strong><span>reports available</span></div>
+          </div>
+          <div class="mini-stats">
+            <div class="mini-stat"><b id="demoTotal">10</b><span>Total in bundle</span></div>
+            <div class="mini-stat"><b id="demoUsed">4</b><span>Used</span></div>
+            <div class="mini-stat"><b id="demoLeft">6</b><span>Remaining</span></div>
+          </div>
+          <div class="demo-controls">
+            <input id="demoVin" value="5YJ3E1EA7PF472486" aria-label="Demo VIN" />
+            <button class="button" id="demoRun" type="button">Run Demo Check</button>
+          </div>
+          <div id="demoNotice" class="demo-note ok"></div>
+          <table>
+            <thead><tr><th>Slot</th><th>Status</th><th>VIN / Plate</th><th>Vehicle Note</th><th>Action</th></tr></thead>
+            <tbody id="demoRows"></tbody>
+          </table>
+          <div class="demo-actions">
+            <button class="button secondary" id="demoDuplicate" type="button">Try Previous VIN</button>
+            <button class="button secondary" id="demoRefill" type="button">Refill +10</button>
+          </div>
+        </div>
+        <div class="scribble one">one link for the customer<svg viewBox="0 0 120 46"><path d="M7 7 C36 11 55 20 78 35 M78 35 L66 25 M78 35 L60 39"/></svg></div>
+        <div class="scribble two">history stays saved<svg viewBox="0 0 120 46"><path d="M100 8 C70 13 42 23 20 36 M20 36 L34 25 M20 36 L39 39"/></svg></div>
+        <div class="scribble three">refill in batches<svg viewBox="0 0 120 46"><path d="M12 32 C45 18 68 15 105 12 M105 12 L91 5 M105 12 L91 22"/></svg></div>
+      </div>
+    </div>
+
+    <section id="pricing" class="shell">
+      <div class="section-head">
+        <h2>Simple Report Pricing</h2>
+        <p>Choose single checks for one car, bundles for regular shoppers, or monthly dealer access for repeat inventory and auction work.</p>
+      </div>
+      <div class="pricing">
+        <article class="price-card">
+          <h3>Single Report</h3>
+          <div class="price">$4 <small>each</small></div>
+          <p>Best for checking one vehicle before you buy.</p>
+          <ul><li>One report link</li><li>VIN or plate lookup</li><li>Fast delivery</li></ul>
+          <a class="button secondary" href="#demo">Check One Car</a>
+        </article>
+        <article class="price-card">
+          <h3>Report Bundle</h3>
+          <div class="price">$35 <small>/ 10 reports</small></div>
+          <p>Good for buyers comparing several vehicles.</p>
+          <ul><li>One customer portal link</li><li>Saved report history</li><li>Open previous reports again</li></ul>
+          <a class="button secondary" href="#demo">See Bundle Portal</a>
+        </article>
+        <article class="price-card featured">
+          <h3>Dealer Monthly</h3>
+          <div class="price">$125 <small>/ month</small></div>
+          <p>Monthly access for small dealers, brokers, and auction buyers. Reports are refilled in batches during the active month.</p>
+          <ul><li>Dealer-style account portal</li><li>Batch refills when balance gets low</li><li>VIN history and vehicle notes</li></ul>
+          <a class="button" href="#dealer">Start Dealer Access</a>
+        </article>
+      </div>
+    </section>
+
+    <section id="dealer" class="shell">
+      <div class="section-head">
+        <h2>Built For Repeat Checking</h2>
+        <p>The monthly plan is designed to feel simple for customers while keeping report delivery controlled and reliable behind the scenes.</p>
+      </div>
+      <div class="bands">
+        <div class="band"><b>Batch Refill System</b><p>Dealer accounts are refilled in groups of reports instead of exposing unlimited credits at once.</p></div>
+        <div class="band"><b>Customer Account Link</b><p>The same phone or account ID keeps every bundle connected under one history.</p></div>
+        <div class="band"><b>Automatic VIN Notes</b><p>Clean VINs are decoded into year, make, model, and trim so records are easier to scan.</p></div>
+        <div class="band"><b>Fair Use Access</b><p>Monthly access is made for normal dealer workflow, not automated scraping or extreme bulk pulls.</p></div>
+      </div>
+    </section>
+
+    <section class="shell">
+      <div class="fine-print">Dealer Monthly is monthly access with batch refills during the active month. Refill size may vary by account activity so every report opens correctly and the service remains stable. Heavy commercial usage may require a custom refill plan.</div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell">Vehicle Report Now. Customer portal, saved history, and dealer-style report access.</div>
+  </footer>
+
+  <script>
+    const demoRows = [
+      { slot: 1, vin: '2C3CDXBG8KH517831', note: '2019 Dodge Charger SXT', used: true },
+      { slot: 2, vin: '4T1BF3EK2AU060791', note: '2010 Toyota Camry', used: true },
+      { slot: 3, vin: 'WBA7T2C04NCH22042', note: '2022 BMW 7 Series 740i', used: true },
+      { slot: 4, vin: '5YJ3E1EA7PF472486', note: '2023 Tesla Model 3', used: true }
+    ];
+    let total = 10;
+    function renderDemo(message, type = 'ok') {
+      const used = demoRows.length;
+      const left = Math.max(0, total - used);
+      document.getElementById('demoTotal').textContent = total;
+      document.getElementById('demoUsed').textContent = used;
+      document.getElementById('demoLeft').textContent = left;
+      document.getElementById('demoRemaining').textContent = left;
+      const rows = document.getElementById('demoRows');
+      rows.innerHTML = '';
+      demoRows.slice(-5).forEach((row) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td data-label="Slot">#' + row.slot + '</td><td data-label="Status"><span class="pill">Used</span></td><td data-label="VIN / Plate">' + row.vin + '</td><td data-label="Vehicle Note">' + row.note + '</td><td data-label="Action"><button class="button secondary" type="button">Open Again</button></td>';
+        rows.appendChild(tr);
+      });
+      const notice = document.getElementById('demoNotice');
+      if (message) {
+        notice.textContent = message;
+        notice.className = 'demo-note show ' + type;
+      } else {
+        notice.className = 'demo-note';
+      }
+    }
+    document.getElementById('demoRun').addEventListener('click', () => {
+      const vin = document.getElementById('demoVin').value.trim().toUpperCase();
+      const existing = demoRows.find((row) => row.vin === vin);
+      if (existing) {
+        renderDemo('Already checked: ' + existing.vin + ' - ' + existing.note + '. Opening it will not use another report.', 'warn');
+        return;
+      }
+      demoRows.push({ slot: demoRows.length + 1, vin, note: 'Vehicle note generated automatically', used: true });
+      renderDemo('New report saved to this customer portal.', 'ok');
+    });
+    document.getElementById('demoDuplicate').addEventListener('click', () => {
+      document.getElementById('demoVin').value = '4T1BF3EK2AU060791';
+      renderDemo('Already checked: 4T1BF3EK2AU060791 - 2010 Toyota Camry. Opening it will not use another report.', 'warn');
+    });
+    document.getElementById('demoRefill').addEventListener('click', () => {
+      total += 10;
+      renderDemo('Account refilled with 10 more reports. Same customer link, same saved history.', 'ok');
+    });
+    renderDemo('');
+  </script>
+</body>
+</html>`;
+}
+
 function adminHtml() {
   return `<!doctype html>
 <html lang="en">
@@ -1438,8 +1707,17 @@ const server = http.createServer(async (req, res) => {
     const pathname = url.pathname;
 
     if (pathname === '/') {
-      res.writeHead(302, { location: '/r/demo5' });
-      return res.end();
+      return sendHtml(res, landingHtml());
+    }
+
+    if (pathname === '/assets/car-fox.jpg') {
+      const imagePath = path.join(__dirname, 'public', 'car-fox.jpg');
+      if (!fs.existsSync(imagePath)) return notFound(res);
+      res.writeHead(200, {
+        'content-type': 'image/jpeg',
+        'cache-control': 'public, max-age=31536000, immutable'
+      });
+      return res.end(fs.readFileSync(imagePath));
     }
 
     if (pathname === '/admin') {
