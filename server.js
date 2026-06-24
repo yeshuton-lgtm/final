@@ -661,7 +661,7 @@ function pageHtml(token) {
 <body>
   <main class="shell">
     <div class="topbar">
-      <div class="brand"><span class="brand-mark"><img src="https://vehiclereportnow.online/assets/favicon.png" alt="Vehicle Report Now" /></span><span>Vehicle Report Now</span></div>
+      <div class="brand"><span class="brand-mark"><img src="/assets/car-fox.jpg" alt="Cheaper Carfax Report" /></span><span>Cheaper Carfax Report</span></div>
       <div class="secure">Secure customer access</div>
     </div>
     <header class="hero">
@@ -1069,7 +1069,7 @@ function landingHtml() {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Vehicle Report Now | Dealer Report Portal</title>
+  <title>Cheaper Carfax Report | Dealer Report Portal</title>
   <style>
     :root { color-scheme: light; --ink:#101828; --muted:#5b6678; --line:#d9e0ea; --panel:#fff; --soft:#f5f7fa; --navy:#111827; --blue:#185bd8; --blue-dark:#1247ad; --green:#087443; --amber:#9a5b00; --gold:#c08a28; font-family: Arial, Helvetica, sans-serif; }
     * { box-sizing: border-box; }
@@ -1194,7 +1194,7 @@ function landingHtml() {
 </head>
 <body>
   <header class="shell topbar">
-    <a class="brand" href="/"><span class="brand-mark"><img src="/assets/car-fox.jpg" alt="Vehicle Report Now" /></span><span>Vehicle Report Now</span></a>
+    <a class="brand" href="/"><span class="brand-mark"><img src="/assets/car-fox.jpg" alt="Cheaper Carfax Report" /></span><span>Cheaper Carfax Report</span></a>
     <nav class="nav"><a href="#demo">Portal Demo</a><a href="#pricing">Pricing</a><a href="#dealer">Dealer Access</a></nav>
     <a class="button secondary" href="#pricing">View Plans</a>
   </header>
@@ -1211,7 +1211,7 @@ function landingHtml() {
         </div>
         <div class="trust-row"><span>Saved report history</span><span>VIN notes generated</span><span>Batch refills included</span></div>
         <div class="mascot-card">
-          <img src="/assets/car-fox.jpg" alt="Vehicle Report Now mascot" />
+          <img src="/assets/car-fox.jpg" alt="Cheaper Carfax Report mascot" />
           <div><b>Made for serious car buyers</b><span>Give customers one clean portal instead of a pile of separate report links.</span></div>
         </div>
       </div>
@@ -1355,7 +1355,7 @@ function landingHtml() {
   </main>
 
   <footer>
-    <div class="shell">Vehicle Report Now. Customer portal, saved history, and dealer-style report access.</div>
+    <div class="shell">Cheaper Carfax Report. Customer portal, saved history, and dealer-style report access.</div>
   </footer>
 
   <script>
