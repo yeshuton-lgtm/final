@@ -12,6 +12,10 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const STRIPE_SINGLE_URL = process.env.STRIPE_SINGLE_URL || '';
 const STRIPE_BUNDLE_URL = process.env.STRIPE_BUNDLE_URL || '';
 const STRIPE_MONTHLY_URL = process.env.STRIPE_MONTHLY_URL || '';
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
+const STRIPE_SINGLE_PRICE_ID = process.env.STRIPE_SINGLE_PRICE_ID || '';
+const STRIPE_BUNDLE_PRICE_ID = process.env.STRIPE_BUNDLE_PRICE_ID || '';
+const STRIPE_MONTHLY_PRICE_ID = process.env.STRIPE_MONTHLY_PRICE_ID || '';
 
 const starterReports = [
   'https://carfax.codes/RSRK1NH9DP',
@@ -52,6 +56,7 @@ function ensureData() {
     const demoToken = 'demo5';
     const now = new Date().toISOString();
     const data = {
+      orders: {},
       inventory: [],
       bundles: {
         [demoToken]: {
@@ -68,6 +73,20 @@ function ensureData() {
 }
 
 function migrateData(data) {
+  data.orders = data.orders && typeof data.orders === 'object' ? data.orders : {};
+  Object.values(data.orders).forEach((order) => {
+    order.id = String(order.id || '');
+    order.plan = String(order.plan || '');
+    order.status = String(order.status || 'pending');
+    order.createdAt = String(order.createdAt || '');
+    order.fulfilledAt = String(order.fulfilledAt || '');
+    order.sessionId = String(order.sessionId || '');
+    order.customerEmail = String(order.customerEmail || '');
+    order.customerName = String(order.customerName || '');
+    order.resultUrl = String(order.resultUrl || '');
+    order.resultType = String(order.resultType || '');
+    order.error = String(order.error || '');
+  });
   data.inventory = Array.isArray(data.inventory) ? data.inventory : [];
   data.inventory.forEach((item) => {
     item.id = String(item.id || crypto.randomBytes(6).toString('hex'));
@@ -425,6 +444,98 @@ function checkoutUrlForPlan(plan) {
   return '';
 }
 
+function stripePriceForPlan(plan) {
+  if (plan === 'single') return STRIPE_SINGLE_PRICE_ID;
+  if (plan === 'bundle') return STRIPE_BUNDLE_PRICE_ID;
+  if (plan === 'monthly') return STRIPE_MONTHLY_PRICE_ID;
+  return '';
+}
+
+function reportCountForPlan(plan) {
+  if (plan === 'single') return 1;
+  if (plan === 'bundle') return 10;
+  if (plan === 'monthly') return 15;
+  return 0;
+}
+
+function stripeModeForPlan(plan) {
+  return plan === 'monthly' ? 'subscription' : 'payment';
+}
+
+function planLabel(plan) {
+  if (plan === 'single') return 'Single Report';
+  if (plan === 'bundle') return 'Report Bundle';
+  if (plan === 'monthly') return 'Dealer Monthly';
+  return 'Checkout';
+}
+
+function publicOrigin(req) {
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  return `${proto}://${req.headers.host}`;
+}
+
+function stripeRequest(method, stripePath, params = null) {
+  return new Promise((resolve, reject) => {
+    if (!STRIPE_SECRET_KEY) return reject(new Error('Stripe secret key is not configured.'));
+    const body = params ? new URLSearchParams(params).toString() : '';
+    const request = https.request({
+      method,
+      hostname: 'api.stripe.com',
+      path: stripePath,
+      headers: {
+        authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+        'content-type': 'application/x-www-form-urlencoded',
+        'content-length': Buffer.byteLength(body)
+      }
+    }, (response) => {
+      let responseBody = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => { responseBody += chunk; });
+      response.on('end', () => {
+        let data;
+        try {
+          data = responseBody ? JSON.parse(responseBody) : {};
+        } catch (error) {
+          reject(new Error('Stripe returned an invalid response.'));
+          return;
+        }
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          reject(new Error(data.error && data.error.message ? data.error.message : 'Stripe request failed.'));
+          return;
+        }
+        resolve(data);
+      });
+    });
+    request.on('error', reject);
+    if (body) request.write(body);
+    request.end();
+  });
+}
+
+async function createStripeCheckoutSession(req, order) {
+  const price = stripePriceForPlan(order.plan);
+  if (!price) throw new Error(`Stripe price is not configured for ${planLabel(order.plan)}.`);
+  const origin = publicOrigin(req);
+  const params = {
+    mode: stripeModeForPlan(order.plan),
+    'line_items[0][price]': price,
+    'line_items[0][quantity]': '1',
+    success_url: `${origin}/order/${order.id}?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/#pricing`,
+    'metadata[order_id]': order.id,
+    'metadata[plan]': order.plan,
+    'phone_number_collection[enabled]': 'true'
+  };
+  if (stripeModeForPlan(order.plan) === 'payment') {
+    params.customer_creation = 'always';
+  }
+  return stripeRequest('POST', '/v1/checkout/sessions', params);
+}
+
+async function retrieveStripeCheckoutSession(sessionId) {
+  return stripeRequest('GET', `/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, null);
+}
+
 function isAdmin(req, url) {
   if (!ADMIN_PASSWORD) return true;
   return url.searchParams.get('password') === ADMIN_PASSWORD || req.headers['x-admin-password'] === ADMIN_PASSWORD;
@@ -570,6 +681,64 @@ function assignSingleInventoryLink(data) {
   item.assignedAt = new Date().toISOString();
   item.assignedBundle = 'single-sale';
   return item.url;
+}
+
+async function fulfillPaidOrder(req, data, order, sessionId) {
+  if (order.status === 'fulfilled') return order;
+  if (order.status === 'failed') return order;
+  const session = await retrieveStripeCheckoutSession(sessionId || order.sessionId);
+  if (session.payment_status !== 'paid') {
+    order.status = 'pending';
+    order.sessionId = session.id || order.sessionId;
+    writeData(data);
+    return order;
+  }
+
+  order.sessionId = session.id || order.sessionId;
+  order.customerEmail = session.customer_details && session.customer_details.email ? session.customer_details.email : order.customerEmail;
+  order.customerName = session.customer_details && session.customer_details.name ? session.customer_details.name : order.customerName;
+  const origin = publicOrigin(req);
+
+  if (order.plan === 'single') {
+    const url = assignSingleInventoryLink(data);
+    if (!url) {
+      order.status = 'failed';
+      order.error = 'No available inventory links left. Please contact support.';
+      writeData(data);
+      return order;
+    }
+    order.status = 'fulfilled';
+    order.resultType = 'single';
+    order.resultUrl = url;
+    order.fulfilledAt = new Date().toISOString();
+    writeData(data);
+    return order;
+  }
+
+  const count = reportCountForPlan(order.plan);
+  const token = crypto.randomBytes(5).toString('hex');
+  const stockLinks = assignInventory(data, count, token);
+  if (!stockLinks) {
+    order.status = 'failed';
+    order.error = `Not enough inventory. Please contact support to finish this order.`;
+    writeData(data);
+    return order;
+  }
+  const customerName = order.customerName || (order.plan === 'monthly' ? 'Dealer Monthly Customer' : 'Bundle Customer');
+  const accountKey = normalizeAccount(order.customerEmail || session.customer_details && session.customer_details.phone || '');
+  data.bundles[token] = {
+    token,
+    customerName,
+    accountKey,
+    createdAt: new Date().toISOString(),
+    reports: stockLinks.map(blankReport)
+  };
+  order.status = 'fulfilled';
+  order.resultType = 'bundle';
+  order.resultUrl = `${origin}/r/${token}`;
+  order.fulfilledAt = new Date().toISOString();
+  writeData(data);
+  return order;
 }
 
 function findExistingSearch(data, bundle, rawSearchKey) {
@@ -1106,6 +1275,13 @@ function landingHtml() {
     h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: .96; letter-spacing: 0; max-width: 720px; }
     .lead { margin: 18px 0 0; color: #344054; font-size: 18px; line-height: 1.55; max-width: 640px; }
     .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
+    .vin-search { margin-top: 22px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px; box-shadow: 0 10px 30px rgba(16,24,40,.08); max-width: 640px; }
+    .vin-search label { display: block; color: #344054; font-size: 12px; font-weight: 900; text-transform: uppercase; margin-bottom: 8px; }
+    .vin-search-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+    .vin-result { display: none; margin-top: 10px; border-radius: 8px; padding: 10px; font-size: 14px; line-height: 1.45; }
+    .vin-result.show { display: block; }
+    .vin-result.ok { background: #edf8f2; color: var(--green); }
+    .vin-result.warn { background: #fff7e6; color: var(--amber); }
     .trust-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; color: var(--muted); font-size: 13px; }
     .trust-row span { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 8px 10px; }
     .mascot-card { display: flex; align-items: center; gap: 14px; width: min(100%, 520px); margin-top: 22px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 12px; box-shadow: 0 10px 30px rgba(16,24,40,.08); }
@@ -1221,6 +1397,7 @@ function landingHtml() {
       .nav { display: none; }
       h1 { font-size: 42px; }
       .lead { font-size: 16px; }
+      .vin-search-row { grid-template-columns: 1fr; }
       .mascot-card { align-items: flex-start; }
       .mascot-card img { width: 88px; height: 104px; }
       .report-shell { height: 540px; min-height: 420px; }
@@ -1252,6 +1429,14 @@ function landingHtml() {
         <p class="eyebrow">Vehicle history reports for active buyers</p>
         <h1>Cheaper Carfax Report</h1>
         <p class="lead"><strong>Dealer Report Portal.</strong> A clean customer link for running vehicle reports, saving VIN history, reopening previous reports, and keeping every checked car organized in one place.</p>
+        <div class="vin-search">
+          <label for="heroVin">Preview vehicle by VIN</label>
+          <div class="vin-search-row">
+            <input id="heroVin" value="5YJ3E1EA7PF472486" maxlength="17" autocomplete="off" placeholder="Enter 17-digit VIN" />
+            <button class="button" id="heroVinButton" type="button">Check VIN</button>
+          </div>
+          <div id="heroVinResult" class="vin-result ok"></div>
+        </div>
         <div class="hero-actions">
           <a class="button" href="${monthlyCheckout}">Start Monthly Access</a>
           <a class="button secondary" href="#demo">Try The Portal</a>
@@ -1422,6 +1607,29 @@ function landingHtml() {
   </footer>
 
   <script>
+    async function previewHeroVin() {
+      const input = document.getElementById('heroVin');
+      const result = document.getElementById('heroVinResult');
+      const vin = input.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      input.value = vin;
+      result.textContent = 'Checking VIN...';
+      result.className = 'vin-result show ok';
+      try {
+        const response = await fetch('/api/decode-vin?vin=' + encodeURIComponent(vin));
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unable to decode VIN.');
+        result.textContent = data.vehicle + ' - full report available after checkout.';
+        result.className = 'vin-result show ok';
+      } catch (error) {
+        result.textContent = error.message || 'Enter a valid 17-digit VIN to preview vehicle information.';
+        result.className = 'vin-result show warn';
+      }
+    }
+    document.getElementById('heroVinButton').addEventListener('click', previewHeroVin);
+    document.getElementById('heroVin').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') previewHeroVin();
+    });
+
     const demoRows = [
       { slot: 1, vin: '2C3CDXBG8KH517831', note: '2019 Dodge Charger SXT', used: true },
       { slot: 2, vin: '4T1BF3EK2AU060791', note: '2010 Toyota Camry', used: true },
@@ -1476,17 +1684,13 @@ function landingHtml() {
 }
 
 function checkoutPendingHtml(plan) {
-  const planLabel = {
-    single: 'Single Report',
-    bundle: 'Report Bundle',
-    monthly: 'Dealer Monthly'
-  }[plan] || 'Checkout';
+  const label = planLabel(plan);
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${planLabel} Checkout | Cheaper Carfax Report</title>
+  <title>${label} Checkout | Cheaper Carfax Report</title>
   <style>
     body { margin:0; min-height:100vh; display:grid; place-items:center; background:#f5f7fa; color:#101828; font-family:Arial,Helvetica,sans-serif; }
     main { width:min(560px, calc(100% - 32px)); background:#fff; border:1px solid #d9e0ea; border-radius:8px; padding:28px; box-shadow:0 14px 40px rgba(16,24,40,.08); }
@@ -1498,8 +1702,46 @@ function checkoutPendingHtml(plan) {
 <body>
   <main>
     <h1>Checkout is being activated</h1>
-    <p>${planLabel} secure payment is almost ready. Please contact us to complete this order while Stripe checkout is being connected.</p>
+    <p>${label} secure payment is almost ready. Please contact us to complete this order while Stripe checkout is being connected.</p>
     <a href="/#pricing">Back to plans</a>
+  </main>
+</body>
+</html>`;
+}
+
+function orderHtml(order) {
+  const fulfilled = order.status === 'fulfilled';
+  const failed = order.status === 'failed';
+  const title = fulfilled ? 'Your report is ready' : failed ? 'Order needs help' : 'Payment is being confirmed';
+  const message = fulfilled
+    ? (order.resultType === 'single' ? 'Open your report link below.' : 'Open your customer portal link below. Your reports are saved there.')
+    : failed
+      ? (order.error || 'Please contact support to finish this order.')
+      : 'If you already paid, refresh this page in a few seconds.';
+  const action = fulfilled
+    ? `<a class="button" href="${htmlAttr(order.resultUrl)}" target="_blank" rel="noopener">Open ${order.resultType === 'single' ? 'Report' : 'Portal'}</a><p class="link">${htmlAttr(order.resultUrl)}</p>`
+    : `<a class="button" href="/#pricing">Back to plans</a>`;
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${title} | Cheaper Carfax Report</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <style>
+    body { margin:0; min-height:100vh; display:grid; place-items:center; background:#f5f7fa; color:#101828; font-family:Arial,Helvetica,sans-serif; }
+    main { width:min(640px, calc(100% - 32px)); background:#fff; border:1px solid #d9e0ea; border-radius:8px; padding:28px; box-shadow:0 14px 40px rgba(16,24,40,.08); }
+    h1 { margin:0 0 10px; font-size:30px; }
+    p { color:#5b6678; line-height:1.55; }
+    .button { display:inline-flex; align-items:center; justify-content:center; min-height:42px; border-radius:6px; padding:10px 14px; background:#185bd8; color:#fff; font-weight:800; text-decoration:none; }
+    .link { overflow-wrap:anywhere; color:#344054; font-size:14px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>${title}</h1>
+    <p>${htmlAttr(message)}</p>
+    ${action}
   </main>
 </body>
 </html>`;
@@ -1664,6 +1906,15 @@ function adminHtml() {
 
 async function handleApi(req, res, pathname) {
   const data = readData();
+
+  if (req.method === 'GET' && pathname === '/api/decode-vin') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    const vin = normalizeSearchKey(requestUrl.searchParams.get('vin') || '');
+    if (!isVinSearchKey(vin)) return sendJson(res, 400, { error: 'Enter a valid 17-digit VIN.' });
+    const vehicle = await decodeVehicleFromVin(vin);
+    if (!vehicle) return sendJson(res, 400, { error: 'Vehicle information was not found for this VIN.' });
+    return sendJson(res, 200, { vin, vehicle });
+  }
 
   if (req.method === 'GET' && pathname === '/api/inventory') {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
@@ -1983,9 +2234,45 @@ const server = http.createServer(async (req, res) => {
 
     const checkoutMatch = pathname.match(/^\/checkout\/(single|bundle|monthly)$/);
     if (req.method === 'GET' && checkoutMatch) {
-      const checkoutUrl = checkoutUrlForPlan(checkoutMatch[1]);
+      const plan = checkoutMatch[1];
+      if (STRIPE_SECRET_KEY && stripePriceForPlan(plan)) {
+        const data = readData();
+        const orderId = crypto.randomBytes(8).toString('hex');
+        const order = {
+          id: orderId,
+          plan,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          fulfilledAt: '',
+          sessionId: '',
+          customerEmail: '',
+          customerName: '',
+          resultUrl: '',
+          resultType: '',
+          error: ''
+        };
+        data.orders[orderId] = order;
+        writeData(data);
+        const session = await createStripeCheckoutSession(req, order);
+        order.sessionId = session.id || '';
+        writeData(data);
+        return redirect(res, session.url);
+      }
+      const checkoutUrl = checkoutUrlForPlan(plan);
       if (checkoutUrl) return redirect(res, checkoutUrl);
-      return sendHtml(res, checkoutPendingHtml(checkoutMatch[1]));
+      return sendHtml(res, checkoutPendingHtml(plan));
+    }
+
+    const orderMatch = pathname.match(/^\/order\/([a-f0-9]{16})$/);
+    if (req.method === 'GET' && orderMatch) {
+      const data = readData();
+      const order = data.orders[orderMatch[1]];
+      if (!order) return notFound(res);
+      const sessionId = url.searchParams.get('session_id') || order.sessionId;
+      if (sessionId && order.status !== 'fulfilled' && order.status !== 'failed' && STRIPE_SECRET_KEY) {
+        await fulfillPaidOrder(req, data, order, sessionId);
+      }
+      return sendHtml(res, orderHtml(order));
     }
 
     if (pathname === '/assets/car-fox.jpg') {
