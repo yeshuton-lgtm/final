@@ -1113,7 +1113,10 @@ function landingHtml() {
     .mascot-card b { display: block; margin-bottom: 5px; }
     .mascot-card span { display: block; color: var(--muted); font-size: 14px; line-height: 1.4; }
     .report-viewer { border-radius: 8px; background: #e8edf4; border: 1px solid #ccd5e2; padding: 14px; box-shadow: 0 20px 60px rgba(16,24,40,.16); }
-    .report-shell { height: min(72vh, 680px); min-height: 520px; background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow-y: auto; overscroll-behavior: contain; }
+    .report-shell { height: min(72vh, 680px); min-height: 520px; background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; overscroll-behavior: contain; }
+    .report-frame { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+    .report-open-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 10px 2px 0; color: var(--muted); font-size: 13px; }
+    .report-open-row a { color: var(--blue); font-weight: 800; }
     .report-top { position: sticky; top: 0; z-index: 2; background: #0b1220; color: #fff; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 4px solid #1b5fcc; }
     .report-top b { font-size: 18px; }
     .report-top span { color: #cbd5e1; font-size: 12px; }
@@ -1192,8 +1195,11 @@ function landingHtml() {
     .reviews { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
     .review { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px; min-height: 190px; }
     .stars { color: #b9903c; font-weight: 900; margin-bottom: 10px; }
+    .review-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .review-avatar { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); background: #eef2f6; }
+    .review-name { display: block; font-weight: 900; }
+    .review-meta { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; }
     .review p { margin: 0; color: #344054; line-height: 1.5; }
-    .review b { display: block; margin-top: 14px; }
     .faq { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
     .faq-item { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
     .faq-item b { display: block; margin-bottom: 8px; }
@@ -1258,49 +1264,11 @@ function landingHtml() {
       </div>
 
       <div class="report-viewer" aria-label="Scrollable vehicle history report preview">
-        <div class="browser-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>secure customer portal</span></div>
+        <div class="browser-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>live report preview</span></div>
         <div class="report-shell">
-          <div class="report-top"><b>CARFAX Vehicle History Report</b><span>Scrollable report preview</span></div>
-          <div class="report-body">
-            <div class="report-title">
-              <h3>2023 Tesla Model 3</h3>
-              <p>VIN: 5YJ3E1EA7PF472486 · Personal vehicle · Sample report view</p>
-            </div>
-            <div class="report-alerts">
-              <div class="report-alert"><strong>0</strong><span>Accidents or damage reported in this preview</span></div>
-              <div class="report-alert"><strong>1</strong><span>Owner history record shown</span></div>
-              <div class="report-alert"><strong>8</strong><span>Service and title records organized</span></div>
-            </div>
-            <div class="report-section">
-              <h4>Vehicle Information</h4>
-              <div class="report-row"><span>Year / Make / Model</span><strong>2023 Tesla Model 3</strong></div>
-              <div class="report-row"><span>Body Style</span><strong>4 Door Sedan</strong></div>
-              <div class="report-row"><span>Fuel Type</span><strong>Electric</strong></div>
-              <div class="report-row"><span>Use</span><strong>Personal vehicle</strong></div>
-            </div>
-            <div class="report-section">
-              <h4>History Summary</h4>
-              <div class="report-row"><span>Title Check</span><strong>No branded title records shown in preview</strong></div>
-              <div class="report-row"><span>Odometer Check</span><strong>No rollback records shown in preview</strong></div>
-              <div class="report-row"><span>Open Recall Check</span><strong>Recall status available in the opened report</strong></div>
-              <div class="report-row"><span>Ownership</span><strong>Records organized by date and source</strong></div>
-            </div>
-            <div class="report-section">
-              <h4>Record Timeline</h4>
-              <div class="report-timeline">
-                <div class="timeline-item"><span>03/2023</span><div><b>Vehicle manufactured and shipped</b><br />Original manufacturer record appears in the live report.</div></div>
-                <div class="timeline-item"><span>04/2023</span><div><b>First owner reported</b><br />Ownership and registration details are grouped in the report timeline.</div></div>
-                <div class="timeline-item"><span>09/2024</span><div><b>Service record posted</b><br />Maintenance entries are shown with date, mileage, and service source when available.</div></div>
-                <div class="timeline-item"><span>05/2026</span><div><b>Latest history record</b><br />The opened report can be saved in your customer portal for future reopening.</div></div>
-              </div>
-            </div>
-            <div class="report-section">
-              <h4>Portal Benefit</h4>
-              <div class="report-row"><span>Saved Note</span><strong>2023 Tesla Model 3 · VIN: 5YJ3E1EA7PF472486</strong></div>
-              <div class="report-row"><span>Reopen</span><strong>The customer can return to this same report from the portal history.</strong></div>
-            </div>
-          </div>
+          <iframe class="report-frame" title="Live CARFAX report preview" src="https://carfax.codes/view/c933291c-afbe-4d67-8790-61aa55d39fa0"></iframe>
         </div>
+        <div class="report-open-row"><span>Scroll the live report preview above</span><a href="https://carfax.codes/view/c933291c-afbe-4d67-8790-61aa55d39fa0" target="_blank" rel="noopener">Open full report</a></div>
       </div>
     </div>
 
@@ -1414,11 +1382,11 @@ function landingHtml() {
         <p>Real Facebook Marketplace feedback from customers who bought vehicle reports and worked with us directly.</p>
       </div>
       <div class="reviews">
-        <div class="review"><div class="stars">★★★★★</div><p>Fast replies.</p><b>Ivan Sal</b></div>
-        <div class="review"><div class="stars">★★★★★</div><p>Love the way they send you the website link so you can check out everything by yourself.</p><b>Junior Levine</b></div>
-        <div class="review"><div class="stars">★★★★★</div><p>Helped me out and very responsive. Someone that's good to do business with.</p><b>Christian Arroyo</b></div>
-        <div class="review"><div class="stars">★★★★★</div><p>Quick turnaround with carfax report, would recommend.</p><b>Trisha Nguyen</b></div>
-        <div class="review"><div class="stars">★★★★★</div><p>Reliable, quick response, got the fax report.</p><b>Alejandro Diaz</b></div>
+        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-ivan.jpg" alt="Ivan Sal" /><div><span class="review-name">Ivan Sal</span><span class="review-meta">Facebook Marketplace review</span></div></div><div class="stars">★★★★★</div><p>Fast replies.</p></div>
+        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-junior.jpg" alt="Junior Levine" /><div><span class="review-name">Junior Levine</span><span class="review-meta">Facebook Marketplace review</span></div></div><div class="stars">★★★★★</div><p>Love the way they send you the website link so you can check out everything by yourself.</p></div>
+        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-christian.jpg" alt="Christian Arroyo" /><div><span class="review-name">Christian Arroyo</span><span class="review-meta">Facebook Marketplace review</span></div></div><div class="stars">★★★★★</div><p>Helped me out and very responsive. Someone that's good to do business with.</p></div>
+        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-trisha.jpg" alt="Trisha Nguyen" /><div><span class="review-name">Trisha Nguyen</span><span class="review-meta">Facebook Marketplace review</span></div></div><div class="stars">★★★★★</div><p>Quick turnaround with carfax report, would recommend.</p></div>
+        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-alejandro.jpg" alt="Alejandro Diaz" /><div><span class="review-name">Alejandro Diaz</span><span class="review-meta">Facebook Marketplace review</span></div></div><div class="stars">★★★★★</div><p>Reliable, quick response, got the fax report.</p></div>
       </div>
     </section>
 
@@ -2032,6 +2000,17 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/assets/fox-head.jpg') {
       const imagePath = path.join(__dirname, 'public', 'fox-head.jpg');
+      if (!fs.existsSync(imagePath)) return notFound(res);
+      res.writeHead(200, {
+        'content-type': 'image/jpeg',
+        'cache-control': 'public, max-age=31536000, immutable'
+      });
+      return res.end(fs.readFileSync(imagePath));
+    }
+
+    const reviewAssetMatch = pathname.match(/^\/assets\/(review-[a-z]+\.jpg)$/);
+    if (reviewAssetMatch) {
+      const imagePath = path.join(__dirname, 'public', reviewAssetMatch[1]);
       if (!fs.existsSync(imagePath)) return notFound(res);
       res.writeHead(200, {
         'content-type': 'image/jpeg',
