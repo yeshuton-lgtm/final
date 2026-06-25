@@ -398,6 +398,14 @@ function sendHtml(res, html) {
   res.end(html);
 }
 
+function redirect(res, location) {
+  res.writeHead(302, {
+    location,
+    'cache-control': 'no-store'
+  });
+  res.end();
+}
+
 function htmlAttr(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -408,6 +416,13 @@ function htmlAttr(value) {
 
 function notFound(res) {
   sendJson(res, 404, { error: 'Not found' });
+}
+
+function checkoutUrlForPlan(plan) {
+  if (plan === 'single') return STRIPE_SINGLE_URL;
+  if (plan === 'bundle') return STRIPE_BUNDLE_URL;
+  if (plan === 'monthly') return STRIPE_MONTHLY_URL;
+  return '';
 }
 
 function isAdmin(req, url) {
@@ -1061,9 +1076,9 @@ function pageHtml(token) {
 }
 
 function landingHtml() {
-  const singleCheckout = htmlAttr(STRIPE_SINGLE_URL || '#contact');
-  const bundleCheckout = htmlAttr(STRIPE_BUNDLE_URL || '#contact');
-  const monthlyCheckout = htmlAttr(STRIPE_MONTHLY_URL || '#contact');
+  const singleCheckout = '/checkout/single';
+  const bundleCheckout = '/checkout/bundle';
+  const monthlyCheckout = '/checkout/monthly';
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -1408,6 +1423,36 @@ function landingHtml() {
     });
     renderDemo('');
   </script>
+</body>
+</html>`;
+}
+
+function checkoutPendingHtml(plan) {
+  const planLabel = {
+    single: 'Single Report',
+    bundle: 'Report Bundle',
+    monthly: 'Dealer Monthly'
+  }[plan] || 'Checkout';
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${planLabel} Checkout | Cheaper Carfax Report</title>
+  <style>
+    body { margin:0; min-height:100vh; display:grid; place-items:center; background:#f5f7fa; color:#101828; font-family:Arial,Helvetica,sans-serif; }
+    main { width:min(560px, calc(100% - 32px)); background:#fff; border:1px solid #d9e0ea; border-radius:8px; padding:28px; box-shadow:0 14px 40px rgba(16,24,40,.08); }
+    h1 { margin:0 0 10px; font-size:28px; }
+    p { color:#5b6678; line-height:1.55; }
+    a { display:inline-flex; align-items:center; justify-content:center; min-height:42px; margin-top:12px; border-radius:6px; padding:10px 14px; background:#185bd8; color:#fff; font-weight:800; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Checkout is being activated</h1>
+    <p>${planLabel} secure payment is almost ready. Please contact us to complete this order while Stripe checkout is being connected.</p>
+    <a href="/#pricing">Back to plans</a>
+  </main>
 </body>
 </html>`;
 }
@@ -1886,6 +1931,13 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/') {
       return sendHtml(res, landingHtml());
+    }
+
+    const checkoutMatch = pathname.match(/^\/checkout\/(single|bundle|monthly)$/);
+    if (req.method === 'GET' && checkoutMatch) {
+      const checkoutUrl = checkoutUrlForPlan(checkoutMatch[1]);
+      if (checkoutUrl) return redirect(res, checkoutUrl);
+      return sendHtml(res, checkoutPendingHtml(checkoutMatch[1]));
     }
 
     if (pathname === '/assets/car-fox.jpg') {
