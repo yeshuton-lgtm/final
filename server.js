@@ -1110,6 +1110,26 @@ function landingHtml() {
     .mascot-card img { width: 108px; height: 124px; border-radius: 8px; object-fit: cover; object-position: center 12%; background: #fff; border: 1px solid #edf0f4; }
     .mascot-card b { display: block; margin-bottom: 5px; }
     .mascot-card span { display: block; color: var(--muted); font-size: 14px; line-height: 1.4; }
+    .report-viewer { border-radius: 8px; background: #e8edf4; border: 1px solid #ccd5e2; padding: 14px; box-shadow: 0 20px 60px rgba(16,24,40,.16); }
+    .report-shell { height: min(72vh, 680px); min-height: 520px; background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow-y: auto; overscroll-behavior: contain; }
+    .report-top { position: sticky; top: 0; z-index: 2; background: #0b1220; color: #fff; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 4px solid #1b5fcc; }
+    .report-top b { font-size: 18px; }
+    .report-top span { color: #cbd5e1; font-size: 12px; }
+    .report-body { padding: 18px; display: grid; gap: 14px; }
+    .report-title { border: 1px solid var(--line); border-radius: 8px; padding: 16px; background: #f8fafc; }
+    .report-title h3 { margin: 0 0 6px; font-size: 24px; }
+    .report-title p { margin: 0; color: var(--muted); }
+    .report-alerts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .report-alert { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fff; min-height: 96px; }
+    .report-alert strong { display: block; font-size: 22px; margin-bottom: 6px; color: var(--green); }
+    .report-alert span { color: var(--muted); font-size: 13px; line-height: 1.35; display: block; }
+    .report-section { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; }
+    .report-section h4 { margin: 0; padding: 12px 14px; background: #eef4ff; color: #173b7a; font-size: 14px; text-transform: uppercase; letter-spacing: .02em; }
+    .report-row { display: grid; grid-template-columns: minmax(130px, .35fr) minmax(0, 1fr); gap: 12px; padding: 12px 14px; border-top: 1px solid var(--line); }
+    .report-row span:first-child { color: var(--muted); font-weight: 800; font-size: 12px; text-transform: uppercase; }
+    .report-timeline { display: grid; gap: 10px; padding: 14px; }
+    .timeline-item { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; border-left: 3px solid #1b5fcc; padding-left: 12px; color: #344054; }
+    .timeline-item b { color: var(--ink); }
     .demo-stage { position: relative; border-radius: 8px; background: #e8edf4; border: 1px solid #ccd5e2; padding: 14px; box-shadow: 0 20px 60px rgba(16,24,40,.16); }
     .browser-bar { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 6px 12px; color: #667085; font-size: 12px; }
     .dot { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; display: inline-block; }
@@ -1139,6 +1159,7 @@ function landingHtml() {
     .scribble.two { bottom: 128px; left: -20px; transform: rotate(5deg); }
     .scribble.three { bottom: 26px; right: 16px; transform: rotate(-2deg); }
     section { padding: 64px 0; }
+    .portal-demo-section { padding-top: 18px; }
     .section-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
     h2 { margin: 0; font-size: 32px; line-height: 1.12; letter-spacing: 0; }
     .section-head p { margin: 0; color: var(--muted); max-width: 560px; line-height: 1.5; }
@@ -1181,7 +1202,7 @@ function landingHtml() {
     footer { padding: 36px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
     @media (max-width: 920px) {
       .hero { grid-template-columns: 1fr; min-height: auto; padding-top: 12px; }
-      .demo-stage { max-width: 720px; }
+      .demo-stage, .report-viewer { max-width: 720px; }
       .pricing, .bands, .sample-grid, .reviews, .faq { grid-template-columns: 1fr; }
       .contact-panel { grid-template-columns: 1fr; }
       .section-head { display: block; }
@@ -1194,6 +1215,9 @@ function landingHtml() {
       .lead { font-size: 16px; }
       .mascot-card { align-items: flex-start; }
       .mascot-card img { width: 88px; height: 104px; }
+      .report-shell { height: 540px; min-height: 420px; }
+      .report-alerts { grid-template-columns: 1fr; }
+      .report-row, .timeline-item { grid-template-columns: 1fr; }
       .portal-head, .demo-controls { grid-template-columns: 1fr; display: grid; }
       .mini-stats { grid-template-columns: 1fr; }
       table, thead, tbody, tr, th, td { display: block; width: 100%; }
@@ -1231,7 +1255,59 @@ function landingHtml() {
         </div>
       </div>
 
-      <div id="demo" class="demo-stage" aria-label="Interactive bundle demo">
+      <div class="report-viewer" aria-label="Scrollable vehicle history report preview">
+        <div class="browser-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>secure customer portal</span></div>
+        <div class="report-shell">
+          <div class="report-top"><b>CARFAX Vehicle History Report</b><span>Scrollable report preview</span></div>
+          <div class="report-body">
+            <div class="report-title">
+              <h3>2023 Tesla Model 3</h3>
+              <p>VIN: 5YJ3E1EA7PF472486 · Personal vehicle · Sample report view</p>
+            </div>
+            <div class="report-alerts">
+              <div class="report-alert"><strong>0</strong><span>Accidents or damage reported in this preview</span></div>
+              <div class="report-alert"><strong>1</strong><span>Owner history record shown</span></div>
+              <div class="report-alert"><strong>8</strong><span>Service and title records organized</span></div>
+            </div>
+            <div class="report-section">
+              <h4>Vehicle Information</h4>
+              <div class="report-row"><span>Year / Make / Model</span><strong>2023 Tesla Model 3</strong></div>
+              <div class="report-row"><span>Body Style</span><strong>4 Door Sedan</strong></div>
+              <div class="report-row"><span>Fuel Type</span><strong>Electric</strong></div>
+              <div class="report-row"><span>Use</span><strong>Personal vehicle</strong></div>
+            </div>
+            <div class="report-section">
+              <h4>History Summary</h4>
+              <div class="report-row"><span>Title Check</span><strong>No branded title records shown in preview</strong></div>
+              <div class="report-row"><span>Odometer Check</span><strong>No rollback records shown in preview</strong></div>
+              <div class="report-row"><span>Open Recall Check</span><strong>Recall status available in the opened report</strong></div>
+              <div class="report-row"><span>Ownership</span><strong>Records organized by date and source</strong></div>
+            </div>
+            <div class="report-section">
+              <h4>Record Timeline</h4>
+              <div class="report-timeline">
+                <div class="timeline-item"><span>03/2023</span><div><b>Vehicle manufactured and shipped</b><br />Original manufacturer record appears in the live report.</div></div>
+                <div class="timeline-item"><span>04/2023</span><div><b>First owner reported</b><br />Ownership and registration details are grouped in the report timeline.</div></div>
+                <div class="timeline-item"><span>09/2024</span><div><b>Service record posted</b><br />Maintenance entries are shown with date, mileage, and service source when available.</div></div>
+                <div class="timeline-item"><span>05/2026</span><div><b>Latest history record</b><br />The opened report can be saved in your customer portal for future reopening.</div></div>
+              </div>
+            </div>
+            <div class="report-section">
+              <h4>Portal Benefit</h4>
+              <div class="report-row"><span>Saved Note</span><strong>2023 Tesla Model 3 · VIN: 5YJ3E1EA7PF472486</strong></div>
+              <div class="report-row"><span>Reopen</span><strong>The customer can return to this same report from the portal history.</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section id="demo" class="shell portal-demo-section">
+      <div class="section-head">
+        <h2>One Portal For Every Report</h2>
+        <p>After the customer opens a report, the portal saves the VIN, vehicle note, date, and reopen button so every checked car stays organized.</p>
+      </div>
+      <div class="demo-stage" aria-label="Interactive bundle demo">
         <div class="browser-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>secure customer portal</span></div>
         <div class="portal">
           <div class="portal-head">
@@ -1261,7 +1337,7 @@ function landingHtml() {
         <div class="scribble two">history stays saved<svg viewBox="0 0 120 46"><path d="M100 8 C70 13 42 23 20 36 M20 36 L34 25 M20 36 L39 39"/></svg></div>
         <div class="scribble three">refill in batches<svg viewBox="0 0 120 46"><path d="M12 32 C45 18 68 15 105 12 M105 12 L91 5 M105 12 L91 22"/></svg></div>
       </div>
-    </div>
+    </section>
 
     <section id="pricing" class="shell">
       <div class="section-head">
