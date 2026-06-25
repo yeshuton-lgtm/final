@@ -597,6 +597,7 @@ function pageHtml(token) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vehicle Report Bundle</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
   <style>
     :root { color-scheme: light; --bg:#f6f7f9; --panel:#fff; --ink:#182230; --muted:#667085; --line:#d8dee8; --accent:#1d5fda; --accent-dark:#174bb0; --ok:#087443; --warn:#a15c00; --danger:#b42318; --navy:#111827; --gold:#c08a28; font-family: Arial, Helvetica, sans-serif; }
     * { box-sizing: border-box; }
@@ -676,7 +677,7 @@ function pageHtml(token) {
 <body>
   <main class="shell">
     <div class="topbar">
-      <div class="brand"><span class="brand-mark"><img src="/assets/car-fox.jpg" alt="Cheaper Carfax Report" /></span><span>Cheaper Carfax Report</span></div>
+      <div class="brand"><span class="brand-mark"><img src="/assets/fox-head.jpg" alt="Cheaper Carfax Report" /></span><span>Cheaper Carfax Report</span></div>
       <div class="secure">Secure customer access</div>
     </div>
     <header class="hero">
@@ -1085,6 +1086,7 @@ function landingHtml() {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cheaper Carfax Report | Dealer Report Portal</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
   <style>
     :root { color-scheme: light; --ink:#101828; --muted:#5b6678; --line:#d9e0ea; --panel:#fff; --soft:#f5f7fa; --navy:#111827; --blue:#185bd8; --blue-dark:#1247ad; --green:#087443; --amber:#9a5b00; --gold:#c08a28; font-family: Arial, Helvetica, sans-serif; }
     * { box-sizing: border-box; }
@@ -1233,7 +1235,7 @@ function landingHtml() {
 </head>
 <body>
   <header class="shell topbar">
-    <a class="brand" href="/"><span class="brand-mark"><img src="/assets/car-fox.jpg" alt="Cheaper Carfax Report" /></span><span>Cheaper Carfax Report</span></a>
+    <a class="brand" href="/"><span class="brand-mark"><img src="/assets/fox-head.jpg" alt="Cheaper Carfax Report" /></span><span>Cheaper Carfax Report</span></a>
     <nav class="nav"><a href="#demo">Portal Demo</a><a href="#pricing">Pricing</a><a href="#dealer">Dealer Access</a></nav>
     <a class="button secondary" href="#pricing">View Plans</a>
   </header>
@@ -1242,8 +1244,8 @@ function landingHtml() {
     <div class="shell hero">
       <div>
         <p class="eyebrow">Vehicle history reports for active buyers</p>
-        <h1>Dealer Report Portal</h1>
-        <p class="lead">A clean customer link for running vehicle reports, saving VIN history, reopening previous reports, and keeping every checked car organized in one place.</p>
+        <h1>Cheaper Carfax Report</h1>
+        <p class="lead"><strong>Dealer Report Portal.</strong> A clean customer link for running vehicle reports, saving VIN history, reopening previous reports, and keeping every checked car organized in one place.</p>
         <div class="hero-actions">
           <a class="button" href="${monthlyCheckout}">Start Monthly Access</a>
           <a class="button secondary" href="#demo">Try The Portal</a>
@@ -1409,12 +1411,14 @@ function landingHtml() {
     <section class="shell">
       <div class="section-head">
         <h2>Customer Feedback</h2>
-        <p>Built around what repeat buyers actually ask for: fewer scattered links, faster reopening, and a cleaner record of checked vehicles.</p>
+        <p>Real Facebook Marketplace feedback from customers who bought vehicle reports and worked with us directly.</p>
       </div>
       <div class="reviews">
-        <div class="review"><div class="stars">★★★★★</div><p>The portal makes it much easier to keep my checked cars organized. I can reopen old reports without asking for the link again.</p><b>Small Dealer Buyer</b></div>
-        <div class="review"><div class="stars">★★★★★</div><p>I check multiple cars before auctions. Having VIN notes and history in one page saves time.</p><b>Auction Customer</b></div>
-        <div class="review"><div class="stars">★★★★★</div><p>Simple to use on mobile. I can see what I already checked and continue with the remaining balance.</p><b>Repeat Buyer</b></div>
+        <div class="review"><div class="stars">★★★★★</div><p>Fast replies.</p><b>Ivan Sal</b></div>
+        <div class="review"><div class="stars">★★★★★</div><p>Love the way they send you the website link so you can check out everything by yourself.</p><b>Junior Levine</b></div>
+        <div class="review"><div class="stars">★★★★★</div><p>Helped me out and very responsive. Someone that's good to do business with.</p><b>Christian Arroyo</b></div>
+        <div class="review"><div class="stars">★★★★★</div><p>Quick turnaround with carfax report, would recommend.</p><b>Trisha Nguyen</b></div>
+        <div class="review"><div class="stars">★★★★★</div><p>Reliable, quick response, got the fax report.</p><b>Alejandro Diaz</b></div>
       </div>
     </section>
 
@@ -2021,6 +2025,26 @@ const server = http.createServer(async (req, res) => {
       if (!fs.existsSync(imagePath)) return notFound(res);
       res.writeHead(200, {
         'content-type': 'image/jpeg',
+        'cache-control': 'public, max-age=31536000, immutable'
+      });
+      return res.end(fs.readFileSync(imagePath));
+    }
+
+    if (pathname === '/assets/fox-head.jpg') {
+      const imagePath = path.join(__dirname, 'public', 'fox-head.jpg');
+      if (!fs.existsSync(imagePath)) return notFound(res);
+      res.writeHead(200, {
+        'content-type': 'image/jpeg',
+        'cache-control': 'public, max-age=31536000, immutable'
+      });
+      return res.end(fs.readFileSync(imagePath));
+    }
+
+    if (pathname === '/favicon.ico') {
+      const imagePath = path.join(__dirname, 'public', 'favicon.ico');
+      if (!fs.existsSync(imagePath)) return notFound(res);
+      res.writeHead(200, {
+        'content-type': 'image/x-icon',
         'cache-control': 'public, max-age=31536000, immutable'
       });
       return res.end(fs.readFileSync(imagePath));
