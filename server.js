@@ -1916,8 +1916,9 @@ function landingHtml() {
 </html>`;
 }
 
-function checkoutPendingHtml(plan) {
+function checkoutPendingHtml(plan, detail = '') {
   const label = planLabel(plan);
+  const detailHtml = detail ? `<p><strong>Setup note:</strong> ${htmlAttr(detail)}</p>` : '';
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -1936,6 +1937,7 @@ function checkoutPendingHtml(plan) {
   <main>
     <h1>Checkout is being activated</h1>
     <p>${label} secure payment is almost ready. Please contact us to complete this order while Stripe checkout is being connected.</p>
+    ${detailHtml}
     <a href="/#pricing">Back to plans</a>
   </main>
 </body>
@@ -2486,10 +2488,21 @@ const server = http.createServer(async (req, res) => {
         };
         data.orders[orderId] = order;
         writeData(data);
-        const session = await createStripeCheckoutSession(req, order);
-        order.sessionId = session.id || '';
-        writeData(data);
-        return redirect(res, session.url);
+        try {
+          const session = await createStripeCheckoutSession(req, order);
+          order.sessionId = session.id || '';
+          writeData(data);
+          if (session && session.url) return redirect(res, session.url);
+          order.error = 'Stripe did not return a checkout URL.';
+          writeData(data);
+        } catch (error) {
+          order.status = 'failed';
+          order.error = error.message || 'Stripe checkout could not be created.';
+          writeData(data);
+          const fallbackUrl = checkoutUrlForPlan(plan);
+          if (fallbackUrl) return redirect(res, fallbackUrl);
+          return sendHtml(res, checkoutPendingHtml(plan, order.error));
+        }
       }
       const checkoutUrl = checkoutUrlForPlan(plan);
       if (checkoutUrl) return redirect(res, checkoutUrl);
