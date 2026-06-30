@@ -1435,7 +1435,13 @@ function landingHtml() {
     .faq-item p { margin: 0; color: var(--muted); line-height: 1.48; }
     .contact-panel { background: #111827; color: #fff; border-radius: 8px; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; }
     .contact-panel p { color: #cbd5e1; margin: 8px 0 0; line-height: 1.5; }
+    .contact-lines { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; color:#cbd5e1; font-size:14px; }
+    .contact-lines a, .contact-lines span { border:1px solid rgba(255,255,255,.16); border-radius:999px; padding:8px 10px; }
     .fine-print { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px; color: var(--muted); line-height: 1.55; }
+    .policy-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:14px; }
+    .policy-card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:18px; }
+    .policy-card b { display:block; margin-bottom:8px; color:#0b1220; }
+    .policy-card p { margin:0; color:var(--muted); line-height:1.5; font-size:14px; }
     .compare-table { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden; box-shadow: 0 12px 34px rgba(16,24,40,.06); }
     .compare-row { display:grid; grid-template-columns: 1.28fr .9fr 1fr .85fr 1fr .75fr; border-top:1px solid var(--line); align-items: center; }
     .compare-row:first-child { border-top:0; background:#f8fafc; font-weight:900; color:#344054; }
@@ -1464,7 +1470,7 @@ function landingHtml() {
       .fox-showcase { min-height: 440px; }
       .fox-showcase img { width: min(88%, 360px); }
       .demo-stage, .report-viewer { max-width: 720px; }
-      .pricing, .membership-stats, .membership-plans, .bands, .sample-grid, .reviews, .faq, .tools-grid, .footer-grid { grid-template-columns: 1fr; }
+      .pricing, .membership-stats, .membership-plans, .bands, .sample-grid, .reviews, .faq, .tools-grid, .policy-grid, .footer-grid { grid-template-columns: 1fr; }
       .compare-row { grid-template-columns: 1fr; }
       .compare-row span { border-left:0; border-top:1px solid var(--line); }
       .compare-row span:first-child { border-top:0; }
@@ -1767,9 +1773,21 @@ function landingHtml() {
       <div class="fine-print">Monthly plans include a fixed number of report credits for the active month. Credits may be delivered in batches so every report opens correctly and the service remains stable. Heavy commercial usage may require a custom plan.</div>
     </section>
 
+    <section id="refund-policy" class="shell">
+      <div class="section-head">
+        <h2>Refund Policy</h2>
+        <p>Clear, simple policy for digital vehicle history reports and monthly report credits.</p>
+      </div>
+      <div class="policy-grid">
+        <div class="policy-card"><b>Before delivery</b><p>If your order has not been fulfilled yet, contact us as soon as possible and we can cancel or refund the order.</p></div>
+        <div class="policy-card"><b>After report access</b><p>Because vehicle history reports are digital items, completed and opened reports are normally non-refundable once access has been delivered.</p></div>
+        <div class="policy-card"><b>Issue with an order</b><p>If a report link does not open or the wrong product is delivered, email us and we will replace the report credit or help resolve the issue.</p></div>
+      </div>
+    </section>
+
     <section id="contact" class="shell">
       <div class="contact-panel">
-        <div><h2>Ready To Check Vehicles?</h2><p>Choose single reports, bundles, or monthly dealer access. After purchase, your customer portal link is created for your account.</p></div>
+        <div><h2>Ready To Check Vehicles?</h2><p>Choose single reports, bundles, or monthly dealer access. After purchase, your customer portal link is created for your account.</p><div class="contact-lines"><a href="mailto:jojicookin@gmail.com">jojicookin@gmail.com</a><span>Pasadena, CA</span></div></div>
         <a class="button" href="#pricing">Choose A Plan</a>
       </div>
     </section>
@@ -1782,7 +1800,7 @@ function landingHtml() {
       <div class="footer-column"><h3>Cheaper Carfax Report</h3><p>Customer portal, saved history, and dealer-style report access for shoppers and small dealerships.</p></div>
       <div class="footer-column"><h3>Compare</h3><a href="#comparison">Carfax Alternative</a><a href="#comparison">vs Carfax.com</a><a href="#comparison">vs AutoCheck</a><a href="#comparison">vs EpicVIN</a><a href="#comparison">vs Bumper</a><a href="#comparison">vs ClearVIN</a><a href="#comparison">vs carVertical</a></div>
       <div class="footer-column"><h3>Tools</h3><a href="#pricing">VIN Check</a><a href="#pricing">License Plate Lookup</a><a href="#demo">Saved Report Portal</a><a href="#membership">Membership Plans</a></div>
-      <div class="footer-column"><h3>Support</h3><a href="#pricing">Pricing</a><a href="#membership">Membership</a><a href="#contact">Contact</a><span>Secure Stripe checkout</span></div>
+      <div class="footer-column"><h3>Support</h3><a href="#pricing">Pricing</a><a href="#membership">Membership</a><a href="#refund-policy">Refund Policy</a><a href="#contact">Contact</a><a href="mailto:jojicookin@gmail.com">jojicookin@gmail.com</a><span>Pasadena, CA</span><span>Secure Stripe checkout</span></div>
     </div>
   </footer>
 
