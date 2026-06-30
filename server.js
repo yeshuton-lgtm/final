@@ -467,7 +467,12 @@ function robotsTxt() {
 
 function sitemapXml() {
   const urls = [
-    ['https://cheapercarfaxreport.com/', '1.0']
+    ['https://cheapercarfaxreport.com/', '1.0'],
+    ['https://cheapercarfaxreport.com/cheap-carfax-report', '0.9'],
+    ['https://cheapercarfaxreport.com/carfax-alternative', '0.9'],
+    ['https://cheapercarfaxreport.com/license-plate-lookup', '0.8'],
+    ['https://cheapercarfaxreport.com/dealer-carfax-reports', '0.8'],
+    ['https://cheapercarfaxreport.com/refund-policy', '0.6']
   ];
   const today = new Date().toISOString().slice(0, 10);
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -480,6 +485,195 @@ ${urls.map(([loc, priority]) => `  <url>
   </url>`).join('\n')}
 </urlset>
 `;
+}
+
+const SEO_PAGES = {
+  '/cheap-carfax-report': {
+    title: 'Cheap Carfax Report for $5 | Cheaper Carfax Report',
+    description: 'Get a cheap vehicle history report with fast checkout, saved report access, and single report or bundle pricing for shoppers and small dealers.',
+    eyebrow: 'Cheap vehicle history reports',
+    h1: 'Cheap Carfax Report Without Retail Pricing',
+    lead: 'Cheaper Carfax Report helps buyers and small dealers check vehicles before they buy. Start with a single report, choose a report bundle, or use monthly credits for repeat checking.',
+    bullets: ['Single reports from $5', 'Bundle pricing for repeat vehicle checks', 'Saved customer portal for reopening reports'],
+    sections: [
+      ['Why shoppers use us', 'Vehicle history reports can get expensive when you are comparing more than one car. Our report portal keeps pricing simple and gives you one place to reopen previous reports.'],
+      ['What you receive', 'After checkout, your report or customer portal link is created for your order. The portal can save VIN history, vehicle notes, and reopen links so your checked cars stay organized.'],
+      ['Best for', 'Used car shoppers, auction buyers, small dealerships, and anyone comparing multiple vehicles before making a purchase.']
+    ],
+    cta: 'Get A $5 Report'
+  },
+  '/carfax-alternative': {
+    title: 'Carfax Alternative With Better Pricing | Cheaper Carfax Report',
+    description: 'Compare vehicle history report options and choose a lower-cost Carfax alternative with fast delivery, bundles, and saved report history.',
+    eyebrow: 'Carfax alternative',
+    h1: 'A Lower-Cost Carfax Alternative For Repeat Checks',
+    lead: 'If you need to check more than one vehicle, retail report pricing adds up quickly. Cheaper Carfax Report is designed for buyers who want fast report access and better organization.',
+    bullets: ['Lower entry price than many retail report sites', 'Single reports, bundles, and monthly report credits', 'Customer portal with saved history'],
+    sections: [
+      ['Compare before you buy', 'Use the preview and pricing options to choose the report access that fits your workflow. Single buyers can start small, while dealers can use bundles or monthly credits.'],
+      ['Saved report history', 'Your portal helps keep previous reports organized by VIN or plate, vehicle note, opened date, and reopen action.'],
+      ['Transparent support', 'Contact support by email if a report link does not open or an order needs attention.']
+    ],
+    cta: 'Compare Pricing'
+  },
+  '/license-plate-lookup': {
+    title: 'License Plate Lookup For Vehicle Reports | Cheaper Carfax Report',
+    description: 'Use VIN or license plate information to start a vehicle history report order. Check cars faster with report links and saved portal history.',
+    eyebrow: 'License plate lookup',
+    h1: 'License Plate Lookup For Vehicle Report Orders',
+    lead: 'Start with a VIN or license plate, preview basic information when available, then complete checkout to open the full report access link.',
+    bullets: ['VIN and plate entry options', 'State selector for plate searches', 'Full report access after checkout'],
+    sections: [
+      ['How plate lookup helps', 'Plate lookup is useful when a listing shows the plate but not the VIN. Enter the plate and state, then continue to checkout for report access.'],
+      ['VIN is still the strongest match', 'When you have the VIN, use VIN search for the cleanest vehicle match. VINs are unique and reduce confusion between similar vehicles.'],
+      ['Saved for later', 'After a report is opened through the customer portal, the vehicle note and search history can be saved for future reference.']
+    ],
+    cta: 'Start Plate Lookup'
+  },
+  '/dealer-carfax-reports': {
+    title: 'Dealer Carfax Reports and Monthly Credits | Cheaper Carfax Report',
+    description: 'Dealer-style vehicle report access with bundles, monthly credits, saved VIN history, and report portal organization for repeat checking.',
+    eyebrow: 'Dealer report access',
+    h1: 'Dealer-Style Report Access For Repeat Vehicle Checks',
+    lead: 'Built for small dealers, auction buyers, and repeat shoppers who need multiple vehicle history reports without losing track of previous checks.',
+    bullets: ['Monthly report credit options', 'Bundle refills and customer account history', 'Portal built for scanning previous reports'],
+    sections: [
+      ['Monthly credits', 'Choose a monthly plan with a fixed number of report credits. Credits can be delivered in batches to keep report access reliable and organized.'],
+      ['Account history', 'Use the same customer account ID or phone number to connect bundles and keep previous reports in one portal.'],
+      ['Inventory workflow', 'Check cars from auctions, dealer inventory, and marketplace listings while keeping notes tied to each VIN or plate.']
+    ],
+    cta: 'View Membership'
+  },
+  '/refund-policy': {
+    title: 'Refund Policy | Cheaper Carfax Report',
+    description: 'Refund policy for digital vehicle history report access, bundles, monthly credits, replacement credits, and support contact information.',
+    eyebrow: 'Refund policy',
+    h1: 'Refund Policy For Digital Report Access',
+    lead: 'We keep the policy simple: contact us quickly if an order has not been fulfilled, and contact support if a delivered link does not open or the wrong product is delivered.',
+    bullets: ['Before delivery, orders can be reviewed for cancellation', 'Opened digital reports are normally non-refundable', 'Broken or incorrect links can be replaced'],
+    sections: [
+      ['Before delivery', 'If your order has not been fulfilled yet, email us as soon as possible and we can review cancellation or refund options.'],
+      ['After report access', 'Vehicle history reports are digital items. Once access has been delivered or opened, completed reports are normally non-refundable.'],
+      ['Order issues', 'If a report link does not open or the wrong product is delivered, contact jojicookin@gmail.com and we will help resolve the issue.']
+    ],
+    cta: 'Contact Support'
+  }
+};
+
+function seoPageHtml(pathname) {
+  const page = SEO_PAGES[pathname];
+  if (!page) return '';
+  const canonical = `https://cheapercarfaxreport.com${pathname}`;
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: page.h1,
+    description: page.description,
+    url: canonical,
+    publisher: {
+      '@type': 'Organization',
+      name: 'Cheaper Carfax Report',
+      url: 'https://cheapercarfaxreport.com',
+      email: 'jojicookin@gmail.com',
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: 'Pasadena',
+        addressRegion: 'CA',
+        addressCountry: 'US'
+      }
+    }
+  };
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${htmlAttr(page.title)}</title>
+  <meta name="description" content="${htmlAttr(page.description)}" />
+  <link rel="canonical" href="${htmlAttr(canonical)}" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <meta property="og:title" content="${htmlAttr(page.title)}" />
+  <meta property="og:description" content="${htmlAttr(page.description)}" />
+  <meta property="og:url" content="${htmlAttr(canonical)}" />
+  <meta property="og:type" content="website" />
+  <script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
+  <style>
+    :root { --ink:#101828; --muted:#5b6678; --line:#d9e0ea; --blue:#185bd8; --navy:#111827; font-family: Arial, Helvetica, sans-serif; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#f4f6f8; color:var(--ink); }
+    a { color:inherit; text-decoration:none; }
+    .shell { width:min(1080px, calc(100% - 32px)); margin:0 auto; }
+    .topbar { height:68px; display:flex; align-items:center; justify-content:space-between; gap:18px; }
+    .brand { display:inline-flex; align-items:center; gap:10px; font-weight:900; }
+    .brand img { width:40px; height:40px; border-radius:8px; border:1px solid var(--line); object-fit:cover; background:#fff; }
+    .nav { display:flex; gap:18px; color:var(--muted); font-size:14px; }
+    .button { display:inline-flex; align-items:center; justify-content:center; min-height:42px; border-radius:6px; padding:10px 14px; background:var(--blue); color:#fff; font-weight:900; }
+    .button.secondary { background:#fff; color:var(--ink); border:1px solid var(--line); }
+    .hero { padding:56px 0 36px; display:grid; grid-template-columns:minmax(0, 1fr) 280px; gap:34px; align-items:center; }
+    .eyebrow { margin:0 0 10px; color:#9a5b00; text-transform:uppercase; font-size:13px; font-weight:900; letter-spacing:.04em; }
+    h1 { margin:0; font-size:clamp(40px, 6vw, 68px); line-height:.98; }
+    .lead { margin:18px 0 0; color:#344054; font-size:18px; line-height:1.55; max-width:720px; }
+    .hero-card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:18px; box-shadow:0 14px 40px rgba(16,24,40,.08); }
+    .hero-card b { display:block; font-size:32px; margin-bottom:4px; }
+    .hero-card span { color:var(--muted); }
+    .bullets { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin:26px 0 0; }
+    .bullet { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px; color:#344054; font-weight:800; }
+    section { padding:34px 0; }
+    .content-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; }
+    .content-card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:18px; min-height:180px; }
+    .content-card h2 { margin:0 0 10px; font-size:22px; }
+    .content-card p { margin:0; color:var(--muted); line-height:1.55; }
+    .cta { background:var(--navy); color:#fff; border-radius:8px; padding:24px; display:flex; justify-content:space-between; gap:18px; align-items:center; }
+    .cta p { margin:8px 0 0; color:#cbd5e1; line-height:1.5; }
+    footer { padding:34px 0; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
+    footer .links { display:flex; flex-wrap:wrap; gap:14px; margin-top:12px; }
+    footer a { color:#344054; font-weight:800; }
+    @media (max-width: 820px) {
+      .nav { display:none; }
+      .hero, .bullets, .content-grid { grid-template-columns:1fr; }
+      .cta { display:block; }
+      .cta .button { margin-top:16px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="shell topbar">
+    <a class="brand" href="/"><img src="/assets/fox-head.jpg" alt="Cheaper Carfax Report" /><span>Cheaper Carfax Report</span></a>
+    <nav class="nav"><a href="/#pricing">Pricing</a><a href="/#membership">Membership</a><a href="/#comparison">Compare</a><a href="/#contact">Contact</a></nav>
+    <a class="button secondary" href="/#pricing">View Plans</a>
+  </header>
+  <main>
+    <div class="shell hero">
+      <div>
+        <p class="eyebrow">${htmlAttr(page.eyebrow)}</p>
+        <h1>${htmlAttr(page.h1)}</h1>
+        <p class="lead">${htmlAttr(page.lead)}</p>
+      </div>
+      <div class="hero-card"><b>$5</b><span>single report option with bundles and monthly credits available.</span></div>
+    </div>
+    <div class="shell bullets">
+      ${page.bullets.map((item) => `<div class="bullet">${htmlAttr(item)}</div>`).join('')}
+    </div>
+    <section class="shell">
+      <div class="content-grid">
+        ${page.sections.map(([heading, text]) => `<article class="content-card"><h2>${htmlAttr(heading)}</h2><p>${htmlAttr(text)}</p></article>`).join('')}
+      </div>
+    </section>
+    <section class="shell">
+      <div class="cta">
+        <div><h2>Ready to check a vehicle?</h2><p>Choose a single report, bundle, or monthly credit plan. Secure checkout is handled through Stripe.</p></div>
+        <a class="button" href="/#pricing">${htmlAttr(page.cta)}</a>
+      </div>
+    </section>
+  </main>
+  <footer>
+    <div class="shell">
+      <div>Cheaper Carfax Report. Pasadena, CA. Contact: <a href="mailto:jojicookin@gmail.com">jojicookin@gmail.com</a></div>
+      <div class="links"><a href="/cheap-carfax-report">Cheap Carfax Report</a><a href="/carfax-alternative">Carfax Alternative</a><a href="/license-plate-lookup">License Plate Lookup</a><a href="/dealer-carfax-reports">Dealer Reports</a><a href="/refund-policy">Refund Policy</a></div>
+    </div>
+  </footer>
+</body>
+</html>`;
 }
 
 function checkoutUrlForPlan(plan) {
@@ -1320,6 +1514,12 @@ function landingHtml() {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cheaper Carfax Report | Dealer Report Portal</title>
+  <meta name="description" content="Cheaper Carfax Report offers $5 vehicle history report access, bundles, monthly report credits, license plate lookup, and a saved customer report portal." />
+  <link rel="canonical" href="https://cheapercarfaxreport.com/" />
+  <meta property="og:title" content="Cheaper Carfax Report" />
+  <meta property="og:description" content="Get a vehicle history report from $5 with bundles, monthly credits, and saved report history." />
+  <meta property="og:url" content="https://cheapercarfaxreport.com/" />
+  <meta property="og:type" content="website" />
   <link rel="icon" href="/favicon.ico" sizes="any" />
   <style>
     :root { color-scheme: light; --ink:#101828; --muted:#5b6678; --line:#d9e0ea; --panel:#fff; --soft:#f5f7fa; --navy:#111827; --blue:#185bd8; --blue-dark:#1247ad; --green:#087443; --amber:#9a5b00; --gold:#c08a28; font-family: Arial, Helvetica, sans-serif; }
@@ -1835,9 +2035,9 @@ function landingHtml() {
   <footer>
     <div class="shell footer-grid">
       <div class="footer-column"><h3>Cheaper Carfax Report</h3><p>Customer portal, saved history, and dealer-style report access for shoppers and small dealerships.</p></div>
-      <div class="footer-column"><h3>Compare</h3><a href="#comparison">Carfax Alternative</a><a href="#comparison">vs Carfax.com</a><a href="#comparison">vs AutoCheck</a><a href="#comparison">vs EpicVIN</a><a href="#comparison">vs Bumper</a><a href="#comparison">vs ClearVIN</a><a href="#comparison">vs carVertical</a></div>
-      <div class="footer-column"><h3>Tools</h3><a href="#pricing">VIN Check</a><a href="#pricing">License Plate Lookup</a><a href="#demo">Saved Report Portal</a><a href="#membership">Membership Plans</a></div>
-      <div class="footer-column"><h3>Support</h3><a href="#pricing">Pricing</a><a href="#membership">Membership</a><a href="#refund-policy">Refund Policy</a><a href="#contact">Contact</a><a href="mailto:jojicookin@gmail.com">jojicookin@gmail.com</a><span>Pasadena, CA</span><span>Secure Stripe checkout</span></div>
+      <div class="footer-column"><h3>Compare</h3><a href="/carfax-alternative">Carfax Alternative</a><a href="/carfax-alternative">vs Carfax.com</a><a href="/carfax-alternative">vs AutoCheck</a><a href="/carfax-alternative">vs EpicVIN</a><a href="/carfax-alternative">vs Bumper</a><a href="/carfax-alternative">vs ClearVIN</a><a href="/carfax-alternative">vs carVertical</a></div>
+      <div class="footer-column"><h3>Tools</h3><a href="/cheap-carfax-report">VIN Check</a><a href="/license-plate-lookup">License Plate Lookup</a><a href="#demo">Saved Report Portal</a><a href="/dealer-carfax-reports">Membership Plans</a></div>
+      <div class="footer-column"><h3>Support</h3><a href="#pricing">Pricing</a><a href="#membership">Membership</a><a href="/refund-policy">Refund Policy</a><a href="#contact">Contact</a><a href="mailto:jojicookin@gmail.com">jojicookin@gmail.com</a><span>Pasadena, CA</span><span>Secure Stripe checkout</span></div>
     </div>
   </footer>
 
@@ -2521,6 +2721,10 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/sitemap.xml') {
       return sendText(res, sitemapXml(), 'application/xml; charset=utf-8');
+    }
+
+    if (SEO_PAGES[pathname]) {
+      return sendHtml(res, seoPageHtml(pathname));
     }
 
     const checkoutMatch = pathname.match(/^\/checkout\/(single|bundle|value|monthly|starter|pro|premium)$/);
