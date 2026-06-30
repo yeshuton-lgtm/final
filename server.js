@@ -13,6 +13,9 @@ const STRIPE_SINGLE_URL = process.env.STRIPE_SINGLE_URL || '';
 const STRIPE_BUNDLE_URL = process.env.STRIPE_BUNDLE_URL || '';
 const STRIPE_VALUE_URL = process.env.STRIPE_VALUE_URL || '';
 const STRIPE_MONTHLY_URL = process.env.STRIPE_MONTHLY_URL || '';
+const STRIPE_STARTER_URL = process.env.STRIPE_STARTER_URL || '';
+const STRIPE_PRO_URL = process.env.STRIPE_PRO_URL || '';
+const STRIPE_PREMIUM_URL = process.env.STRIPE_PREMIUM_URL || '';
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_SINGLE_PRICE_ID = process.env.STRIPE_SINGLE_PRICE_ID || '';
 const STRIPE_BUNDLE_PRICE_ID = process.env.STRIPE_BUNDLE_PRICE_ID || '';
@@ -447,6 +450,9 @@ function checkoutUrlForPlan(plan) {
   if (plan === 'bundle') return STRIPE_BUNDLE_URL;
   if (plan === 'value') return STRIPE_VALUE_URL;
   if (plan === 'monthly') return STRIPE_MONTHLY_URL;
+  if (plan === 'starter') return STRIPE_STARTER_URL || STRIPE_MONTHLY_URL;
+  if (plan === 'pro') return STRIPE_PRO_URL || STRIPE_MONTHLY_URL;
+  if (plan === 'premium') return STRIPE_PREMIUM_URL || STRIPE_MONTHLY_URL;
   return '';
 }
 
