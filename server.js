@@ -1301,15 +1301,11 @@ function landingHtml() {
     .hero { min-height: calc(100vh - 68px); display: grid; grid-template-columns: minmax(0, .98fr) minmax(360px, .72fr); gap: 46px; align-items: center; padding: 34px 0 54px; }
     .hero-main { max-width: 760px; }
     .hero-visual { position: relative; min-height: 620px; display: grid; align-items: center; }
-    .fox-showcase { position: relative; min-height: 570px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: linear-gradient(180deg, #fff 0%, #f5f8fc 100%); box-shadow: 0 24px 70px rgba(16,24,40,.12); }
-    .fox-showcase img { position: absolute; right: -22px; bottom: -34px; width: min(118%, 560px); height: auto; display: block; }
+    .fox-showcase { position: relative; min-height: 570px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; box-shadow: 0 24px 70px rgba(16,24,40,.12); }
+    .fox-showcase img { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: min(92%, 430px); height: auto; display: block; }
     .fox-badge { position: absolute; left: 20px; top: 20px; right: 20px; background: rgba(255,255,255,.92); border: 1px solid var(--line); border-radius: 8px; padding: 16px; box-shadow: 0 12px 30px rgba(16,24,40,.08); }
     .fox-badge b { display:block; font-size: 20px; margin-bottom: 6px; }
     .fox-badge span { display:block; color: var(--muted); font-size: 14px; line-height: 1.4; }
-    .fox-stats { position: absolute; left: 20px; bottom: 22px; display: grid; gap: 10px; width: 190px; }
-    .fox-stat { background: rgba(17,24,39,.92); color:#fff; border-radius: 8px; padding: 14px; border: 1px solid rgba(255,255,255,.16); box-shadow: 0 12px 28px rgba(16,24,40,.18); }
-    .fox-stat strong { display:block; font-size: 24px; line-height: 1; }
-    .fox-stat span { color:#cbd5e1; font-size: 12px; display:block; margin-top: 5px; }
     .eyebrow { color: var(--gold); font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 10px; }
     h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: .96; letter-spacing: 0; max-width: 760px; }
     h1 span { color: #2563eb; }
@@ -1428,7 +1424,8 @@ function landingHtml() {
     .sample-copy p { color: var(--muted); line-height: 1.55; margin: 0 0 14px; }
     .reviews { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
     .review { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px; min-height: 190px; }
-    .stars { color: #b9903c; font-weight: 900; margin-bottom: 10px; }
+    .stars { display: flex; gap: 3px; margin-bottom: 10px; }
+    .stars i { width: 15px; height: 15px; display: inline-block; background: #f59e0b; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 56%, 79% 91%, 50% 70%, 21% 91%, 32% 56%, 2% 35%, 39% 35%); }
     .review-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
     .review-avatar { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); background: #eef2f6; }
     .letter-avatar { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: #111827; color: #fff; font-weight: 900; border: 1px solid var(--line); }
@@ -1468,7 +1465,7 @@ function landingHtml() {
       .hero { grid-template-columns: 1fr; min-height: auto; padding-top: 12px; }
       .hero-visual { min-height: 460px; }
       .fox-showcase { min-height: 440px; }
-      .fox-showcase img { width: min(96%, 420px); right: 0; }
+      .fox-showcase img { width: min(88%, 360px); }
       .demo-stage, .report-viewer { max-width: 720px; }
       .pricing, .membership-stats, .membership-plans, .bands, .sample-grid, .reviews, .faq, .tools-grid, .footer-grid { grid-template-columns: 1fr; }
       .compare-row { grid-template-columns: 1fr; }
@@ -1485,10 +1482,9 @@ function landingHtml() {
       .lead { font-size: 16px; }
       .hero-visual { min-height: 390px; }
       .fox-showcase { min-height: 370px; }
-      .fox-showcase img { width: min(112%, 390px); right: -18px; bottom: -24px; }
+      .fox-showcase img { width: min(86%, 320px); }
       .fox-badge { left: 12px; right: 12px; top: 12px; padding: 12px; }
       .fox-badge b { font-size: 16px; }
-      .fox-stats { left: 12px; bottom: 12px; width: 150px; }
       .vin-search-row { grid-template-columns: 1fr; }
       .mascot-card { align-items: flex-start; }
       .mascot-card img { width: 88px; height: 104px; }
@@ -1543,10 +1539,6 @@ function landingHtml() {
         <div class="fox-showcase">
           <div class="fox-badge"><b>Official-style report access, without retail pricing.</b><span>Enter a VIN or plate, complete secure checkout, and open your report link from a saved customer portal.</span></div>
           <img src="/assets/car-fox.jpg" alt="Cheaper Carfax Report mascot" />
-          <div class="fox-stats">
-            <div class="fox-stat"><strong>$5</strong><span>single report</span></div>
-            <div class="fox-stat"><strong>4.8/5</strong><span>buyer feedback</span></div>
-          </div>
         </div>
       </aside>
     </div>
@@ -1719,12 +1711,12 @@ function landingHtml() {
         <p>Real Facebook Marketplace feedback from customers who bought vehicle reports and worked with us directly.</p>
       </div>
       <div class="reviews">
-        <div class="review"><div class="review-head"><div class="letter-avatar">RD</div><div><span class="review-name">Reuben David</span><span class="review-meta">United States</span></div></div><div class="stars">?????</div><p>Received the report in a timely manner. Had a question and they were quick to respond. Cheaper than carfax.com and same info!</p></div>
-        <div class="review"><div class="review-head"><div class="letter-avatar">M</div><div><span class="review-name">MarketingCo</span><span class="review-meta">Mexico</span></div></div><div class="stars">?????</div><p>Love this thing! Way better than paying $600 for a Carfax. I'm a dealer and this is insanely helpful.</p></div>
-        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-junior.jpg" alt="dennis urban" /><div><span class="review-name">dennis urban</span><span class="review-meta">United States</span></div></div><div class="stars">?????</div><p>Took dealership plan even though I was skeptical. Definitely worth it. Can't beat the price. The owner is a nice guy as well.</p></div>
-        <div class="review"><div class="review-head"><div class="letter-avatar">AM</div><div><span class="review-name">Anas mouss</span><span class="review-meta">Morocco</span></div></div><div class="stars">?????</div><p>Running reports on many vehicles was never viable because of the cost. The first car I checked had six owners, three accidents, and an odometer rollback. Dodged a bullet.</p></div>
-        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-alejandro.jpg" alt="ItsZelt" /><div><span class="review-name">ItsZelt</span><span class="review-meta">United States</span></div></div><div class="stars">?????</div><p>Got the report in like 30 seconds. Same info as the $40 one I paid for last year. Works fine.</p></div>
-        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-christian.jpg" alt="Customer" /><div><span class="review-name">Verified buyer</span><span class="review-meta">United States</span></div></div><div class="stars">?????</div><p>It was fast and I got what I needed. I had a small bump in the road but customer service handled it fast and were very polite.</p></div>
+        <div class="review"><div class="review-head"><div class="letter-avatar">RD</div><div><span class="review-name">Reuben David</span><span class="review-meta">United States</span></div></div><div class="stars"><i></i><i></i><i></i><i></i><i></i></div><p>Received the report in a timely manner. Had a question and they were quick to respond. Cheaper than carfax.com and same info!</p></div>
+        <div class="review"><div class="review-head"><div class="letter-avatar">M</div><div><span class="review-name">MarketingCo</span><span class="review-meta">Mexico</span></div></div><div class="stars"><i></i><i></i><i></i><i></i><i></i></div><p>Love this thing! Way better than paying $600 for a Carfax. I'm a dealer and this is insanely helpful.</p></div>
+        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-junior.jpg" alt="dennis urban" /><div><span class="review-name">dennis urban</span><span class="review-meta">United States</span></div></div><div class="stars"><i></i><i></i><i></i><i></i><i></i></div><p>Took dealership plan even though I was skeptical. Definitely worth it. Can't beat the price. The owner is a nice guy as well.</p></div>
+        <div class="review"><div class="review-head"><div class="letter-avatar">AM</div><div><span class="review-name">Anas mouss</span><span class="review-meta">Morocco</span></div></div><div class="stars"><i></i><i></i><i></i><i></i><i></i></div><p>Running reports on many vehicles was never viable because of the cost. The first car I checked had six owners, three accidents, and an odometer rollback. Dodged a bullet.</p></div>
+        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-alejandro.jpg" alt="ItsZelt" /><div><span class="review-name">ItsZelt</span><span class="review-meta">United States</span></div></div><div class="stars"><i></i><i></i><i></i><i></i><i></i></div><p>Got the report in like 30 seconds. Same info as the $40 one I paid for last year. Works fine.</p></div>
+        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-christian.jpg" alt="Customer" /><div><span class="review-name">Verified buyer</span><span class="review-meta">United States</span></div></div><div class="stars"><i></i><i></i><i></i><i></i><i></i></div><p>It was fast and I got what I needed. I had a small bump in the road but customer service handled it fast and were very polite.</p></div>
       </div>
     </section>
 
