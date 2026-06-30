@@ -18,6 +18,9 @@ const STRIPE_SINGLE_PRICE_ID = process.env.STRIPE_SINGLE_PRICE_ID || '';
 const STRIPE_BUNDLE_PRICE_ID = process.env.STRIPE_BUNDLE_PRICE_ID || '';
 const STRIPE_VALUE_PRICE_ID = process.env.STRIPE_VALUE_PRICE_ID || '';
 const STRIPE_MONTHLY_PRICE_ID = process.env.STRIPE_MONTHLY_PRICE_ID || '';
+const STRIPE_STARTER_PRICE_ID = process.env.STRIPE_STARTER_PRICE_ID || '';
+const STRIPE_PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID || '';
+const STRIPE_PREMIUM_PRICE_ID = process.env.STRIPE_PREMIUM_PRICE_ID || '';
 
 const starterReports = [
   'https://carfax.codes/RSRK1NH9DP',
@@ -452,6 +455,9 @@ function stripePriceForPlan(plan) {
   if (plan === 'bundle') return STRIPE_BUNDLE_PRICE_ID;
   if (plan === 'value') return STRIPE_VALUE_PRICE_ID;
   if (plan === 'monthly') return STRIPE_MONTHLY_PRICE_ID;
+  if (plan === 'starter') return STRIPE_STARTER_PRICE_ID || STRIPE_MONTHLY_PRICE_ID;
+  if (plan === 'pro') return STRIPE_PRO_PRICE_ID || STRIPE_MONTHLY_PRICE_ID;
+  if (plan === 'premium') return STRIPE_PREMIUM_PRICE_ID || STRIPE_MONTHLY_PRICE_ID;
   return '';
 }
 
@@ -460,18 +466,24 @@ function reportCountForPlan(plan) {
   if (plan === 'bundle') return 12;
   if (plan === 'value') return 32;
   if (plan === 'monthly') return 15;
+  if (plan === 'starter') return 30;
+  if (plan === 'pro') return 75;
+  if (plan === 'premium') return 150;
   return 0;
 }
 
 function stripeModeForPlan(plan) {
-  return plan === 'monthly' ? 'subscription' : 'payment';
+  return ['monthly', 'starter', 'pro', 'premium'].includes(plan) ? 'subscription' : 'payment';
 }
 
 function planLabel(plan) {
   if (plan === 'single') return 'Single Report';
   if (plan === 'bundle') return '12 Report Bundle';
   if (plan === 'value') return '32 Report Bundle';
-  if (plan === 'monthly') return 'Dealer Monthly';
+  if (plan === 'monthly') return 'Monthly Credits';
+  if (plan === 'starter') return 'Starter Monthly';
+  if (plan === 'pro') return 'Pro Monthly';
+  if (plan === 'premium') return 'Premium Monthly';
   return 'Checkout';
 }
 
@@ -730,7 +742,7 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
     writeData(data);
     return order;
   }
-  const customerName = order.customerName || (order.plan === 'monthly' ? 'Dealer Monthly Customer' : 'Bundle Customer');
+  const customerName = order.customerName || `${planLabel(order.plan)} Customer`;
   const accountKey = normalizeAccount(order.customerEmail || session.customer_details && session.customer_details.phone || '');
   data.bundles[token] = {
     token,
@@ -1256,6 +1268,9 @@ function landingHtml() {
   const bundleCheckout = '/checkout/bundle';
   const valueCheckout = '/checkout/value';
   const monthlyCheckout = '/checkout/monthly';
+  const starterCheckout = '/checkout/starter';
+  const proCheckout = '/checkout/pro';
+  const premiumCheckout = '/checkout/premium';
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -1367,6 +1382,7 @@ function landingHtml() {
     .pricing { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
     .price-card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: flex; flex-direction: column; min-height: 280px; }
     .price-card.featured { border-color: #b9903c; box-shadow: 0 14px 40px rgba(192,138,40,.14); }
+    .price-card.popular { border-color: var(--blue); box-shadow: 0 14px 40px rgba(37,99,235,.13); }
     .price-card h3 { margin: 0 0 8px; font-size: 20px; }
     .price { font-size: 36px; font-weight: 900; margin: 4px 0 6px; }
     .price small { color: var(--muted); font-size: 14px; font-weight: 700; }
@@ -1374,6 +1390,12 @@ function landingHtml() {
     .price-card ul { margin: 0 0 18px; padding: 0; list-style: none; display: grid; gap: 10px; color: #344054; font-size: 14px; }
     .price-card li::before { content: "Check"; color: var(--green); font-weight: 900; margin-right: 8px; }
     .price-card .button { margin-top: auto; }
+    .plan-badge { align-self: flex-start; display: inline-flex; border-radius: 999px; padding: 6px 10px; background: #dbeafe; color: var(--blue); font-size: 12px; font-weight: 900; margin-bottom: 12px; }
+    .membership-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 34px; }
+    .membership-stat { text-align: center; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 20px; }
+    .membership-stat b { display: block; font-size: 30px; line-height: 1; }
+    .membership-stat span { color: var(--muted); font-size: 13px; }
+    .membership-plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; align-items: stretch; }
     .bands { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
     .band { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-height: 150px; }
     .band b { display: block; margin-bottom: 8px; }
@@ -1404,22 +1426,32 @@ function landingHtml() {
     .contact-panel { background: #111827; color: #fff; border-radius: 8px; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; }
     .contact-panel p { color: #cbd5e1; margin: 8px 0 0; line-height: 1.5; }
     .fine-print { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px; color: var(--muted); line-height: 1.55; }
-    .compare-table { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
-    .compare-row { display:grid; grid-template-columns: 1.2fr repeat(3, 1fr); border-top:1px solid var(--line); }
-    .compare-row:first-child { border-top:0; background:#f8fafc; font-weight:900; }
-    .compare-row span { padding:12px; border-left:1px solid var(--line); }
-    .compare-row span:first-child { border-left:0; }
+    .compare-table { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden; box-shadow: 0 12px 34px rgba(16,24,40,.06); }
+    .compare-row { display:grid; grid-template-columns: 1.28fr .9fr 1fr .85fr 1fr .75fr; border-top:1px solid var(--line); align-items: center; }
+    .compare-row:first-child { border-top:0; background:#f8fafc; font-weight:900; color:#344054; }
+    .compare-row.best { background:#f3f7ff; }
+    .compare-row span { padding:18px 22px; min-width:0; }
+    .compare-provider { display:flex; align-items:center; gap:8px; font-weight:900; }
+    .best-badge { display:inline-flex; border-radius:999px; padding:4px 7px; background:var(--blue); color:#fff; font-size:11px; font-weight:900; }
+    .compare-price b { display:block; color:var(--blue); font-size:18px; }
+    .compare-price small { display:block; color:var(--muted); margin-top:4px; }
+    .compare-action { font-weight:900; color:var(--blue); text-align:center; }
+    .compare-action.button { color:#fff; padding:10px 12px; justify-content:center; }
     .tools-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; }
     .tool-link { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px; color:#344054; font-weight:800; }
     .live-toast { position: fixed; left: 18px; bottom: 18px; width: min(330px, calc(100% - 36px)); background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; box-shadow: 0 18px 50px rgba(16,24,40,.18); transform: translateY(140%); opacity: 0; transition: .28s ease; z-index: 20; }
     .live-toast.show { transform: translateY(0); opacity: 1; }
     .live-toast b { display:block; margin-bottom:4px; }
     .live-toast span { display:block; color:var(--muted); font-size:13px; line-height:1.35; }
-    footer { padding: 36px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+    footer { padding: 42px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; background:#fff; }
+    .footer-grid { display:grid; grid-template-columns: 1.2fr repeat(3, 1fr); gap:28px; }
+    .footer-column h3 { margin:0 0 14px; color:#0b1220; font-size:15px; }
+    .footer-column a, .footer-column span { display:block; color:#344054; margin:0 0 12px; }
+    .footer-column p { margin:0; line-height:1.55; }
     @media (max-width: 920px) {
       .hero { grid-template-columns: 1fr; min-height: auto; padding-top: 12px; }
       .demo-stage, .report-viewer { max-width: 720px; }
-      .pricing, .bands, .sample-grid, .reviews, .faq, .tools-grid { grid-template-columns: 1fr; }
+      .pricing, .membership-stats, .membership-plans, .bands, .sample-grid, .reviews, .faq, .tools-grid, .footer-grid { grid-template-columns: 1fr; }
       .compare-row { grid-template-columns: 1fr; }
       .compare-row span { border-left:0; border-top:1px solid var(--line); }
       .compare-row span:first-child { border-top:0; }
@@ -1454,7 +1486,7 @@ function landingHtml() {
 <body>
   <header class="shell topbar">
     <a class="brand" href="/"><span class="brand-mark"><img src="/assets/fox-head.jpg" alt="Cheaper Carfax Report" /></span><span>Cheaper Carfax Report</span></a>
-    <nav class="nav"><a href="#demo">Portal Demo</a><a href="#pricing">Pricing</a><a href="#dealer">Dealer Access</a></nav>
+    <nav class="nav"><a href="#demo">Portal Demo</a><a href="#pricing">Pricing</a><a href="#membership">Membership</a><a href="#comparison">Compare</a></nav>
     <a class="button secondary" href="#pricing">View Plans</a>
   </header>
 
@@ -1563,11 +1595,48 @@ function landingHtml() {
           <a class="button secondary" href="${valueCheckout}">Buy 32 Pack</a>
         </article>
         <article class="price-card">
-          <h3>Dealer Monthly</h3>
+          <h3>Monthly Credits</h3>
           <div class="price">$95 <small>/ month</small></div>
-          <p>Monthly access with 15-report batch refills for dealer workflow.</p>
-          <ul><li>Dealer-style account portal</li><li>Batch refills</li><li>VIN history and vehicle notes</li></ul>
-          <a class="button secondary" href="${monthlyCheckout}">Start Monthly</a>
+          <p>Monthly report credits with batch delivery for dealer workflow.</p>
+          <ul><li>15 reports delivered first</li><li>Dealer-style account portal</li><li>VIN history and vehicle notes</li></ul>
+          <a class="button secondary" href="#membership">View Monthly Plans</a>
+        </article>
+      </div>
+    </section>
+
+    <section id="membership" class="shell">
+      <div class="membership-stats">
+        <div class="membership-stat"><b>500+</b><span>active buyers and dealers</span></div>
+        <div class="membership-stat"><b>1M+</b><span>reports requested through partner sources</span></div>
+        <div class="membership-stat"><b>$1.00</b><span>lowest per-report monthly rate</span></div>
+      </div>
+      <div class="section-head">
+        <h2>Choose Your Monthly Plan</h2>
+        <p>All monthly plans include instant portal access, saved report history, and fixed monthly report credits. Cancel anytime.</p>
+      </div>
+      <div class="membership-plans">
+        <article class="price-card">
+          <h3>Starter Plan</h3>
+          <div class="price">$30 <small>/ month</small></div>
+          <p>30 reports per month for light shoppers and small inventory checks.</p>
+          <ul><li>30 reports per month</li><li>Dashboard portal</li><li>Email support</li><li>Cancel anytime</li></ul>
+          <a class="button secondary" href="${starterCheckout}">Get Started</a>
+        </article>
+        <article class="price-card popular">
+          <span class="plan-badge">Most Popular</span>
+          <h3>Pro Plan</h3>
+          <div class="price">$59 <small>/ month</small></div>
+          <p>75 reports per month for auction checks and active dealership work.</p>
+          <ul><li>75 reports per month</li><li>Dashboard portal</li><li>Priority support</li><li>Cancel anytime</li></ul>
+          <a class="button" href="${proCheckout}">Get Started</a>
+        </article>
+        <article class="price-card">
+          <span class="plan-badge">Best Value</span>
+          <h3>Premium Plan</h3>
+          <div class="price">$99 <small>/ month</small></div>
+          <p>150 reports per month for higher-volume dealer and buyer workflows.</p>
+          <ul><li>150 reports per month</li><li>Dashboard portal</li><li>Priority support</li><li>Cancel anytime</li></ul>
+          <a class="button secondary" href="${premiumCheckout}">Get Started</a>
         </article>
       </div>
     </section>
@@ -1641,14 +1710,22 @@ function landingHtml() {
 
     <section class="shell">
       <div class="section-head">
-        <h2>Price Comparison</h2>
-        <p>Built for shoppers and small dealers who need report access without paying retail prices every time.</p>
+        <h2>Every Carfax Alternative Compared</h2>
+        <p>Cheaper Carfax Report is built for shoppers and small dealers who want fast official report access at a better price.</p>
       </div>
-      <div class="compare-table">
-        <div class="compare-row"><span>Option</span><span>Single report</span><span>Bundle</span><span>Best for</span></div>
-        <div class="compare-row"><span>Cheaper Carfax Report</span><span>$5</span><span>$24 / 12 reports</span><span>Repeat buyers and dealers</span></div>
-        <div class="compare-row"><span>Retail report sites</span><span>Often much higher</span><span>Limited savings</span><span>One-time buyers</span></div>
-        <div class="compare-row"><span>Dealer Monthly</span><span>Included in batches</span><span>$95/month</span><span>Auction and inventory checks</span></div>
+      <div id="comparison" class="compare-table">
+        <div class="compare-row"><span>Provider</span><span>Price</span><span>Data Source</span><span>Delivery</span><span>Rating</span><span>Action</span></div>
+        <div class="compare-row best">
+          <span class="compare-provider">Cheaper Carfax Report <em class="best-badge">BEST</em></span>
+          <span class="compare-price"><b>$5</b><small>per report</small></span>
+          <span>Official report access</span><span>Instant</span><span>Best value</span><span><a class="button compare-action" href="${singleCheckout}">Get Report</a></span>
+        </div>
+        <div class="compare-row"><span class="compare-provider">Carfax.com</span><span class="compare-price"><b>$39.99</b><small>per report</small></span><span>Official Carfax</span><span>Instant</span><span>N/A</span><span class="compare-action">Compare</span></div>
+        <div class="compare-row"><span class="compare-provider">AutoCheck</span><span class="compare-price"><b>$24.99</b><small>per report</small></span><span>Experian</span><span>Instant</span><span>3.5/5</span><span class="compare-action">Compare</span></div>
+        <div class="compare-row"><span class="compare-provider">EpicVIN</span><span class="compare-price"><b>$14.99</b><small>per report</small></span><span>NMVTIS</span><span>Instant</span><span>3.8/5</span><span class="compare-action">Compare</span></div>
+        <div class="compare-row"><span class="compare-provider">Bumper</span><span class="compare-price"><b>$29.99</b><small>per month</small></span><span>NMVTIS</span><span>Instant</span><span>2.5/5</span><span class="compare-action">Compare</span></div>
+        <div class="compare-row"><span class="compare-provider">ClearVIN</span><span class="compare-price"><b>$15.99</b><small>per report</small></span><span>NMVTIS</span><span>Instant</span><span>3.5/5</span><span class="compare-action">Compare</span></div>
+        <div class="compare-row"><span class="compare-provider">VinGurus</span><span class="compare-price"><b>~$10-15</b><small>per report</small></span><span>Varies</span><span>Varies</span><span>3.2/5</span><span class="compare-action">Compare</span></div>
       </div>
     </section>
 
@@ -1666,7 +1743,7 @@ function landingHtml() {
     </section>
 
     <section class="shell">
-      <div class="fine-print">Dealer Monthly is monthly access with batch refills during the active month. Refill size may vary by account activity so every report opens correctly and the service remains stable. Heavy commercial usage may require a custom refill plan.</div>
+      <div class="fine-print">Monthly plans include a fixed number of report credits for the active month. Credits may be delivered in batches so every report opens correctly and the service remains stable. Heavy commercial usage may require a custom plan.</div>
     </section>
 
     <section id="contact" class="shell">
@@ -1680,7 +1757,12 @@ function landingHtml() {
   <div class="live-toast" id="liveToast" aria-live="polite"></div>
 
   <footer>
-    <div class="shell">Cheaper Carfax Report. Customer portal, saved history, and dealer-style report access.</div>
+    <div class="shell footer-grid">
+      <div class="footer-column"><h3>Cheaper Carfax Report</h3><p>Customer portal, saved history, and dealer-style report access for shoppers and small dealerships.</p></div>
+      <div class="footer-column"><h3>Compare</h3><a href="#comparison">Carfax Alternative</a><a href="#comparison">vs Carfax.com</a><a href="#comparison">vs AutoCheck</a><a href="#comparison">vs EpicVIN</a><a href="#comparison">vs Bumper</a><a href="#comparison">vs ClearVIN</a><a href="#comparison">vs carVertical</a></div>
+      <div class="footer-column"><h3>Tools</h3><a href="#pricing">VIN Check</a><a href="#pricing">License Plate Lookup</a><a href="#demo">Saved Report Portal</a><a href="#membership">Membership Plans</a></div>
+      <div class="footer-column"><h3>Support</h3><a href="#pricing">Pricing</a><a href="#membership">Membership</a><a href="#contact">Contact</a><span>Secure Stripe checkout</span></div>
+    </div>
   </footer>
 
   <script>
@@ -2348,7 +2430,7 @@ const server = http.createServer(async (req, res) => {
       return sendHtml(res, landingHtml());
     }
 
-    const checkoutMatch = pathname.match(/^\/checkout\/(single|bundle|value|monthly)$/);
+    const checkoutMatch = pathname.match(/^\/checkout\/(single|bundle|value|monthly|starter|pro|premium)$/);
     if (req.method === 'GET' && checkoutMatch) {
       const plan = checkoutMatch[1];
       if (STRIPE_SECRET_KEY && stripePriceForPlan(plan)) {
