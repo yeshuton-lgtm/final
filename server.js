@@ -425,6 +425,14 @@ function sendHtml(res, html) {
   res.end(html);
 }
 
+function sendText(res, text, contentType = 'text/plain; charset=utf-8') {
+  res.writeHead(200, {
+    'content-type': contentType,
+    'cache-control': 'public, max-age=3600'
+  });
+  res.end(text);
+}
+
 function redirect(res, location) {
   res.writeHead(302, {
     location,
@@ -443,6 +451,35 @@ function htmlAttr(value) {
 
 function notFound(res) {
   sendJson(res, 404, { error: 'Not found' });
+}
+
+function robotsTxt() {
+  return [
+    'User-agent: *',
+    'Allow: /',
+    'Disallow: /admin',
+    'Disallow: /api/',
+    'Disallow: /order/',
+    'Sitemap: https://cheapercarfaxreport.com/sitemap.xml',
+    ''
+  ].join('\n');
+}
+
+function sitemapXml() {
+  const urls = [
+    ['https://cheapercarfaxreport.com/', '1.0']
+  ];
+  const today = new Date().toISOString().slice(0, 10);
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.map(([loc, priority]) => `  <url>
+    <loc>${loc}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>${priority}</priority>
+  </url>`).join('\n')}
+</urlset>
+`;
 }
 
 function checkoutUrlForPlan(plan) {
@@ -2476,6 +2513,14 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/') {
       return sendHtml(res, landingHtml());
+    }
+
+    if (pathname === '/robots.txt') {
+      return sendText(res, robotsTxt(), 'text/plain; charset=utf-8');
+    }
+
+    if (pathname === '/sitemap.xml') {
+      return sendText(res, sitemapXml(), 'application/xml; charset=utf-8');
     }
 
     const checkoutMatch = pathname.match(/^\/checkout\/(single|bundle|value|monthly|starter|pro|premium)$/);
