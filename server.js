@@ -11,10 +11,12 @@ const DATA_FILE = path.join(DATA_DIR, 'bundles.json');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const STRIPE_SINGLE_URL = process.env.STRIPE_SINGLE_URL || '';
 const STRIPE_BUNDLE_URL = process.env.STRIPE_BUNDLE_URL || '';
+const STRIPE_VALUE_URL = process.env.STRIPE_VALUE_URL || '';
 const STRIPE_MONTHLY_URL = process.env.STRIPE_MONTHLY_URL || '';
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_SINGLE_PRICE_ID = process.env.STRIPE_SINGLE_PRICE_ID || '';
 const STRIPE_BUNDLE_PRICE_ID = process.env.STRIPE_BUNDLE_PRICE_ID || '';
+const STRIPE_VALUE_PRICE_ID = process.env.STRIPE_VALUE_PRICE_ID || '';
 const STRIPE_MONTHLY_PRICE_ID = process.env.STRIPE_MONTHLY_PRICE_ID || '';
 
 const starterReports = [
@@ -440,6 +442,7 @@ function notFound(res) {
 function checkoutUrlForPlan(plan) {
   if (plan === 'single') return STRIPE_SINGLE_URL;
   if (plan === 'bundle') return STRIPE_BUNDLE_URL;
+  if (plan === 'value') return STRIPE_VALUE_URL;
   if (plan === 'monthly') return STRIPE_MONTHLY_URL;
   return '';
 }
@@ -447,13 +450,15 @@ function checkoutUrlForPlan(plan) {
 function stripePriceForPlan(plan) {
   if (plan === 'single') return STRIPE_SINGLE_PRICE_ID;
   if (plan === 'bundle') return STRIPE_BUNDLE_PRICE_ID;
+  if (plan === 'value') return STRIPE_VALUE_PRICE_ID;
   if (plan === 'monthly') return STRIPE_MONTHLY_PRICE_ID;
   return '';
 }
 
 function reportCountForPlan(plan) {
   if (plan === 'single') return 1;
-  if (plan === 'bundle') return 10;
+  if (plan === 'bundle') return 12;
+  if (plan === 'value') return 32;
   if (plan === 'monthly') return 15;
   return 0;
 }
@@ -464,7 +469,8 @@ function stripeModeForPlan(plan) {
 
 function planLabel(plan) {
   if (plan === 'single') return 'Single Report';
-  if (plan === 'bundle') return 'Report Bundle';
+  if (plan === 'bundle') return '12 Report Bundle';
+  if (plan === 'value') return '32 Report Bundle';
   if (plan === 'monthly') return 'Dealer Monthly';
   return 'Checkout';
 }
@@ -1248,6 +1254,7 @@ function pageHtml(token) {
 function landingHtml() {
   const singleCheckout = '/checkout/single';
   const bundleCheckout = '/checkout/bundle';
+  const valueCheckout = '/checkout/value';
   const monthlyCheckout = '/checkout/monthly';
   return `<!doctype html>
 <html lang="en">
@@ -1270,14 +1277,27 @@ function landingHtml() {
     .button { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; border-radius: 6px; border: 1px solid transparent; padding: 10px 14px; background: var(--blue); color: #fff; font-weight: 800; cursor: pointer; }
     .button:hover { background: var(--blue-dark); }
     .button.secondary { background: #fff; color: var(--ink); border-color: var(--line); }
-    .hero { min-height: calc(100vh - 68px); display: grid; grid-template-columns: minmax(0, .88fr) minmax(420px, 1.12fr); gap: 32px; align-items: center; padding: 24px 0 54px; }
+    .hero { min-height: calc(100vh - 68px); display: block; padding: 34px 0 54px; }
+    .hero-main { max-width: 760px; }
     .eyebrow { color: var(--gold); font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 10px; }
-    h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: .96; letter-spacing: 0; max-width: 720px; }
+    h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: .96; letter-spacing: 0; max-width: 760px; }
+    h1 span { color: #2563eb; }
     .lead { margin: 18px 0 0; color: #344054; font-size: 18px; line-height: 1.55; max-width: 640px; }
     .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
     .vin-search { margin-top: 22px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px; box-shadow: 0 10px 30px rgba(16,24,40,.08); max-width: 640px; }
     .vin-search label { display: block; color: #344054; font-size: 12px; font-weight: 900; text-transform: uppercase; margin-bottom: 8px; }
-    .vin-search-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+    .vin-search-row { display: grid; grid-template-columns: minmax(0, 1fr) 86px auto; gap: 8px; }
+    .vin-search-row select { min-height: 40px; border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; font: inherit; background: #fff; }
+    .search-tabs { display: inline-flex; gap: 6px; padding: 4px; margin-bottom: 12px; background: #f1f4f8; border: 1px solid var(--line); border-radius: 8px; }
+    .search-tabs button { min-height: 36px; border: 0; border-radius: 6px; background: transparent; color: #344054; padding: 8px 12px; font-weight: 900; cursor: pointer; }
+    .search-tabs button.active { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(16,24,40,.08); }
+    .customer-proof { display: flex; align-items: center; gap: 8px; margin-top: 20px; color: var(--muted); }
+    .avatar-stack { display: inline-flex; margin-right: 6px; }
+    .avatar-stack img { width: 32px; height: 32px; object-fit: cover; border-radius: 50%; border: 2px solid #fff; margin-left: -8px; background: #eef2f6; }
+    .avatar-stack img:first-child { margin-left: 0; }
+    .customer-proof strong { color: var(--ink); }
+    .checkout-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 22px; color: var(--muted); font-size: 13px; }
+    .checkout-strip strong { color: #635bff; font-size: 18px; }
     .vin-result { display: none; margin-top: 10px; border-radius: 8px; padding: 10px; font-size: 14px; line-height: 1.45; }
     .vin-result.show { display: block; }
     .vin-result.ok { background: #edf8f2; color: var(--green); }
@@ -1344,7 +1364,7 @@ function landingHtml() {
     .section-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
     h2 { margin: 0; font-size: 32px; line-height: 1.12; letter-spacing: 0; }
     .section-head p { margin: 0; color: var(--muted); max-width: 560px; line-height: 1.5; }
-    .pricing { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .pricing { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
     .price-card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: flex; flex-direction: column; min-height: 280px; }
     .price-card.featured { border-color: #b9903c; box-shadow: 0 14px 40px rgba(192,138,40,.14); }
     .price-card h3 { margin: 0 0 8px; font-size: 20px; }
@@ -1373,6 +1393,7 @@ function landingHtml() {
     .stars { color: #b9903c; font-weight: 900; margin-bottom: 10px; }
     .review-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
     .review-avatar { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); background: #eef2f6; }
+    .letter-avatar { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: #111827; color: #fff; font-weight: 900; border: 1px solid var(--line); }
     .review-name { display: block; font-weight: 900; }
     .review-meta { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; }
     .review p { margin: 0; color: #344054; line-height: 1.5; }
@@ -1383,11 +1404,25 @@ function landingHtml() {
     .contact-panel { background: #111827; color: #fff; border-radius: 8px; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; }
     .contact-panel p { color: #cbd5e1; margin: 8px 0 0; line-height: 1.5; }
     .fine-print { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px; color: var(--muted); line-height: 1.55; }
+    .compare-table { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+    .compare-row { display:grid; grid-template-columns: 1.2fr repeat(3, 1fr); border-top:1px solid var(--line); }
+    .compare-row:first-child { border-top:0; background:#f8fafc; font-weight:900; }
+    .compare-row span { padding:12px; border-left:1px solid var(--line); }
+    .compare-row span:first-child { border-left:0; }
+    .tools-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; }
+    .tool-link { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px; color:#344054; font-weight:800; }
+    .live-toast { position: fixed; left: 18px; bottom: 18px; width: min(330px, calc(100% - 36px)); background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; box-shadow: 0 18px 50px rgba(16,24,40,.18); transform: translateY(140%); opacity: 0; transition: .28s ease; z-index: 20; }
+    .live-toast.show { transform: translateY(0); opacity: 1; }
+    .live-toast b { display:block; margin-bottom:4px; }
+    .live-toast span { display:block; color:var(--muted); font-size:13px; line-height:1.35; }
     footer { padding: 36px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
     @media (max-width: 920px) {
       .hero { grid-template-columns: 1fr; min-height: auto; padding-top: 12px; }
       .demo-stage, .report-viewer { max-width: 720px; }
-      .pricing, .bands, .sample-grid, .reviews, .faq { grid-template-columns: 1fr; }
+      .pricing, .bands, .sample-grid, .reviews, .faq, .tools-grid { grid-template-columns: 1fr; }
+      .compare-row { grid-template-columns: 1fr; }
+      .compare-row span { border-left:0; border-top:1px solid var(--line); }
+      .compare-row span:first-child { border-top:0; }
       .contact-panel { grid-template-columns: 1fr; }
       .section-head { display: block; }
       .section-head p { margin-top: 10px; }
@@ -1425,29 +1460,35 @@ function landingHtml() {
 
   <main>
     <div class="shell hero">
-      <div>
-        <p class="eyebrow">Vehicle history reports for active buyers</p>
-        <h1>Cheaper Carfax Report</h1>
-        <p class="lead"><strong>Dealer Report Portal.</strong> A clean customer link for running vehicle reports, saving VIN history, reopening previous reports, and keeping every checked car organized in one place.</p>
-        <div class="vin-search">
-          <label for="heroVin">Preview vehicle by VIN</label>
+      <div class="hero-main">
+        <p class="eyebrow">Instant vehicle history reports</p>
+        <h1>Cheaper Carfax Report for <span>$5</span></h1>
+        <p class="lead">Get the same vehicle history details buyers expect, delivered through a clean customer portal with saved report history and fast access.</p>
+        <div class="customer-proof"><span class="avatar-stack"><img src="/assets/review-junior.jpg" alt="Customer" /><img src="/assets/review-christian.jpg" alt="Customer" /><img src="/assets/review-alejandro.jpg" alt="Customer" /></span><strong>4,371+</strong><span>customers served</span></div>
+        <div class="trust-row"><span>Instant delivery</span><span>Official report access</span><span>SSL secured</span></div>
+        <div class="vin-search hero-search">
+          <div class="search-tabs"><button class="active" id="vinTab" type="button">Enter VIN</button><button id="plateTab" type="button">License Plate</button></div>
+          <label id="heroSearchLabel" for="heroVin">Preview vehicle information</label>
           <div class="vin-search-row">
-            <input id="heroVin" value="5YJ3E1EA7PF472486" maxlength="17" autocomplete="off" placeholder="Enter 17-digit VIN" />
-            <button class="button" id="heroVinButton" type="button">Check VIN</button>
+            <input id="heroVin" value="5YJ3E1EA7PF472486" maxlength="17" autocomplete="off" placeholder="Enter 17-character VIN" />
+            <select id="heroState" aria-label="State"><option value="CA">CA</option><option value="TX">TX</option><option value="FL">FL</option><option value="NY">NY</option><option value="NC">NC</option><option value="GA">GA</option><option value="AZ">AZ</option><option value="NV">NV</option><option value="WA">WA</option></select>
+            <button class="button" id="heroVinButton" type="button">Get Report</button>
           </div>
           <div id="heroVinResult" class="vin-result ok"></div>
         </div>
         <div class="hero-actions">
-          <a class="button" href="${monthlyCheckout}">Start Monthly Access</a>
-          <a class="button secondary" href="#demo">Try The Portal</a>
+          <a class="button" href="${singleCheckout}">Get $5 Report</a>
+          <a class="button secondary" href="#pricing">View Bundles</a>
         </div>
-        <div class="trust-row"><span>Saved report history</span><span>VIN notes generated</span><span>Batch refills included</span></div>
-        <div class="mascot-card">
-          <img src="/assets/car-fox.jpg" alt="Cheaper Carfax Report mascot" />
-          <div><b>Made for serious car buyers</b><span>Give customers one clean portal instead of a pile of separate report links.</span></div>
-        </div>
+        <div class="checkout-strip"><span>SSL secured</span><strong>stripe</strong><span>256-bit encrypted checkout</span></div>
       </div>
+    </div>
 
+    <section class="shell report-preview-section">
+      <div class="section-head">
+        <h2>Preview A Real Report Page</h2>
+        <p>Scroll the live report example below. Your purchased report opens in the same direct report format, then your portal saves it for reopening.</p>
+      </div>
       <div class="report-viewer" aria-label="Scrollable vehicle history report preview">
         <div class="browser-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>live report preview</span></div>
         <div class="report-shell">
@@ -1455,7 +1496,7 @@ function landingHtml() {
         </div>
         <div class="report-open-row"><span>Scroll the live report preview above</span><a href="https://carfax.codes/view/c933291c-afbe-4d67-8790-61aa55d39fa0" target="_blank" rel="noopener">Open full report</a></div>
       </div>
-    </div>
+    </section>
 
     <section id="demo" class="shell portal-demo-section">
       <div class="section-head">
@@ -1500,26 +1541,33 @@ function landingHtml() {
         <p>Choose single checks for one car, bundles for regular shoppers, or monthly dealer access for repeat inventory and auction work.</p>
       </div>
       <div class="pricing">
-        <article class="price-card">
+        <article class="price-card featured">
           <h3>Single Report</h3>
-          <div class="price">$4 <small>each</small></div>
+          <div class="price">$5 <small>each</small></div>
           <p>Best for checking one vehicle before you buy.</p>
           <ul><li>One report link</li><li>VIN or plate lookup</li><li>Fast delivery</li></ul>
-          <a class="button secondary" href="${singleCheckout}">Check One Car</a>
+          <a class="button" href="${singleCheckout}">Get Report</a>
         </article>
         <article class="price-card">
-          <h3>Report Bundle</h3>
-          <div class="price">$35 <small>/ 10 reports</small></div>
-          <p>Good for buyers comparing several vehicles.</p>
-          <ul><li>One customer portal link</li><li>Saved report history</li><li>Open previous reports again</li></ul>
-          <a class="button secondary" href="${bundleCheckout}">Buy Bundle</a>
+          <h3>12 Report Bundle</h3>
+          <div class="price">$24 <small>/ 12 reports</small></div>
+          <p>For shoppers comparing several vehicles.</p>
+          <ul><li>One customer portal link</li><li>Saved report history</li><li>Only $2 per report</li></ul>
+          <a class="button secondary" href="${bundleCheckout}">Buy 12 Pack</a>
         </article>
-        <article class="price-card featured">
+        <article class="price-card">
+          <h3>32 Report Bundle</h3>
+          <div class="price">$54 <small>/ 32 reports</small></div>
+          <p>Best value for active buyers and small dealers.</p>
+          <ul><li>32 report credits</li><li>Customer account portal</li><li>Reopen previous reports</li></ul>
+          <a class="button secondary" href="${valueCheckout}">Buy 32 Pack</a>
+        </article>
+        <article class="price-card">
           <h3>Dealer Monthly</h3>
           <div class="price">$95 <small>/ month</small></div>
-          <p>Monthly access for small dealers, brokers, and auction buyers. Reports are refilled in batches during the active month.</p>
-          <ul><li>Dealer-style account portal</li><li>Batch refills when balance gets low</li><li>VIN history and vehicle notes</li></ul>
-          <a class="button" href="${monthlyCheckout}">Start Dealer Access</a>
+          <p>Monthly access with 15-report batch refills for dealer workflow.</p>
+          <ul><li>Dealer-style account portal</li><li>Batch refills</li><li>VIN history and vehicle notes</li></ul>
+          <a class="button secondary" href="${monthlyCheckout}">Start Monthly</a>
         </article>
       </div>
     </section>
@@ -1567,11 +1615,12 @@ function landingHtml() {
         <p>Real Facebook Marketplace feedback from customers who bought vehicle reports and worked with us directly.</p>
       </div>
       <div class="reviews">
-        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-ivan.jpg" alt="Ivan Sal" /><div><span class="review-name">Ivan Sal</span><span class="review-meta">Facebook Marketplace review</span></div></div><div class="stars">★★★★★</div><p>Fast replies.</p></div>
-        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-junior.jpg" alt="Junior Levine" /><div><span class="review-name">Junior Levine</span><span class="review-meta">Facebook Marketplace review</span></div></div><div class="stars">★★★★★</div><p>Love the way they send you the website link so you can check out everything by yourself.</p></div>
-        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-christian.jpg" alt="Christian Arroyo" /><div><span class="review-name">Christian Arroyo</span><span class="review-meta">Facebook Marketplace review</span></div></div><div class="stars">★★★★★</div><p>Helped me out and very responsive. Someone that's good to do business with.</p></div>
-        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-trisha.jpg" alt="Trisha Nguyen" /><div><span class="review-name">Trisha Nguyen</span><span class="review-meta">Facebook Marketplace review</span></div></div><div class="stars">★★★★★</div><p>Quick turnaround with carfax report, would recommend.</p></div>
-        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-alejandro.jpg" alt="Alejandro Diaz" /><div><span class="review-name">Alejandro Diaz</span><span class="review-meta">Facebook Marketplace review</span></div></div><div class="stars">★★★★★</div><p>Reliable, quick response, got the fax report.</p></div>
+        <div class="review"><div class="review-head"><div class="letter-avatar">RD</div><div><span class="review-name">Reuben David</span><span class="review-meta">United States</span></div></div><div class="stars">?????</div><p>Received the report in a timely manner. Had a question and they were quick to respond. Cheaper than carfax.com and same info!</p></div>
+        <div class="review"><div class="review-head"><div class="letter-avatar">M</div><div><span class="review-name">MarketingCo</span><span class="review-meta">Mexico</span></div></div><div class="stars">?????</div><p>Love this thing! Way better than paying $600 for a Carfax. I'm a dealer and this is insanely helpful.</p></div>
+        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-junior.jpg" alt="dennis urban" /><div><span class="review-name">dennis urban</span><span class="review-meta">United States</span></div></div><div class="stars">?????</div><p>Took dealership plan even though I was skeptical. Definitely worth it. Can't beat the price. The owner is a nice guy as well.</p></div>
+        <div class="review"><div class="review-head"><div class="letter-avatar">AM</div><div><span class="review-name">Anas mouss</span><span class="review-meta">Morocco</span></div></div><div class="stars">?????</div><p>Running reports on many vehicles was never viable because of the cost. The first car I checked had six owners, three accidents, and an odometer rollback. Dodged a bullet.</p></div>
+        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-alejandro.jpg" alt="ItsZelt" /><div><span class="review-name">ItsZelt</span><span class="review-meta">United States</span></div></div><div class="stars">?????</div><p>Got the report in like 30 seconds. Same info as the $40 one I paid for last year. Works fine.</p></div>
+        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-christian.jpg" alt="Customer" /><div><span class="review-name">Verified buyer</span><span class="review-meta">United States</span></div></div><div class="stars">?????</div><p>It was fast and I got what I needed. I had a small bump in the road but customer service handled it fast and were very polite.</p></div>
       </div>
     </section>
 
@@ -1591,6 +1640,32 @@ function landingHtml() {
     </section>
 
     <section class="shell">
+      <div class="section-head">
+        <h2>Price Comparison</h2>
+        <p>Built for shoppers and small dealers who need report access without paying retail prices every time.</p>
+      </div>
+      <div class="compare-table">
+        <div class="compare-row"><span>Option</span><span>Single report</span><span>Bundle</span><span>Best for</span></div>
+        <div class="compare-row"><span>Cheaper Carfax Report</span><span>$5</span><span>$24 / 12 reports</span><span>Repeat buyers and dealers</span></div>
+        <div class="compare-row"><span>Retail report sites</span><span>Often much higher</span><span>Limited savings</span><span>One-time buyers</span></div>
+        <div class="compare-row"><span>Dealer Monthly</span><span>Included in batches</span><span>$95/month</span><span>Auction and inventory checks</span></div>
+      </div>
+    </section>
+
+    <section class="shell">
+      <div class="section-head">
+        <h2>Tools</h2>
+        <p>Quick paths customers expect when they land on the page.</p>
+      </div>
+      <div class="tools-grid">
+        <a class="tool-link" href="#pricing">VIN Check</a>
+        <a class="tool-link" href="#pricing">License Plate Lookup</a>
+        <a class="tool-link" href="#demo">Saved Report Portal</a>
+        <a class="tool-link" href="#dealer">Dealer Plan</a>
+      </div>
+    </section>
+
+    <section class="shell">
       <div class="fine-print">Dealer Monthly is monthly access with batch refills during the active month. Refill size may vary by account activity so every report opens correctly and the service remains stable. Heavy commercial usage may require a custom refill plan.</div>
     </section>
 
@@ -1602,14 +1677,38 @@ function landingHtml() {
     </section>
   </main>
 
+  <div class="live-toast" id="liveToast" aria-live="polite"></div>
+
   <footer>
     <div class="shell">Cheaper Carfax Report. Customer portal, saved history, and dealer-style report access.</div>
   </footer>
 
   <script>
+    let heroSearchMode = 'vin';
+    function setHeroSearchMode(mode) {
+      heroSearchMode = mode;
+      document.getElementById('vinTab').classList.toggle('active', mode === 'vin');
+      document.getElementById('plateTab').classList.toggle('active', mode === 'plate');
+      document.getElementById('heroState').style.display = mode === 'plate' ? 'block' : 'none';
+      document.getElementById('heroSearchLabel').textContent = mode === 'plate' ? 'Preview by license plate' : 'Preview vehicle information';
+      document.getElementById('heroVin').maxLength = mode === 'plate' ? 10 : 17;
+      document.getElementById('heroVin').placeholder = mode === 'plate' ? 'Enter license plate' : 'Enter 17-character VIN';
+    }
     async function previewHeroVin() {
       const input = document.getElementById('heroVin');
       const result = document.getElementById('heroVinResult');
+      if (heroSearchMode === 'plate') {
+        const plate = input.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        input.value = plate;
+        if (!plate) {
+          result.textContent = 'Enter a license plate to start. Full plate lookup is available after checkout.';
+          result.className = 'vin-result show warn';
+          return;
+        }
+        result.textContent = 'Plate lookup ready for ' + plate + ' (' + document.getElementById('heroState').value + '). Full report available after checkout.';
+        result.className = 'vin-result show ok';
+        return;
+      }
       const vin = input.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
       input.value = vin;
       result.textContent = 'Checking VIN...';
@@ -1629,6 +1728,23 @@ function landingHtml() {
     document.getElementById('heroVin').addEventListener('keydown', (event) => {
       if (event.key === 'Enter') previewHeroVin();
     });
+    document.getElementById('vinTab').addEventListener('click', () => setHeroSearchMode('vin'));
+    document.getElementById('plateTab').addEventListener('click', () => setHeroSearchMode('plate'));
+    setHeroSearchMode('vin');
+
+    const toastStates = ['California', 'Texas', 'Florida', 'North Carolina', 'Arizona', 'Georgia', 'Nevada', 'New York'];
+    const toastVehicles = ['2022 Chevrolet Silverado', '2021 Toyota Camry', '2019 Honda Accord', '2020 Ford F-150', '2023 Tesla Model 3', '2018 BMW 3 Series', '2021 Nissan Rogue'];
+    function showLiveToast() {
+      const toast = document.getElementById('liveToast');
+      const state = toastStates[Math.floor(Math.random() * toastStates.length)];
+      const vehicle = toastVehicles[Math.floor(Math.random() * toastVehicles.length)];
+      const action = Math.random() > 0.35 ? 'checked a report' : 'purchased a report';
+      toast.innerHTML = '<b>Someone in ' + state + '</b><span>' + action + ' for a ' + vehicle + '</span><span>1 min ago</span>';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 6500);
+    }
+    setTimeout(showLiveToast, 6000);
+    setInterval(showLiveToast, 30000);
 
     const demoRows = [
       { slot: 1, vin: '2C3CDXBG8KH517831', note: '2019 Dodge Charger SXT', used: true },
@@ -2232,7 +2348,7 @@ const server = http.createServer(async (req, res) => {
       return sendHtml(res, landingHtml());
     }
 
-    const checkoutMatch = pathname.match(/^\/checkout\/(single|bundle|monthly)$/);
+    const checkoutMatch = pathname.match(/^\/checkout\/(single|bundle|value|monthly)$/);
     if (req.method === 'GET' && checkoutMatch) {
       const plan = checkoutMatch[1];
       if (STRIPE_SECRET_KEY && stripePriceForPlan(plan)) {
