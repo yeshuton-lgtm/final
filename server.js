@@ -1298,8 +1298,18 @@ function landingHtml() {
     .button { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; border-radius: 6px; border: 1px solid transparent; padding: 10px 14px; background: var(--blue); color: #fff; font-weight: 800; cursor: pointer; }
     .button:hover { background: var(--blue-dark); }
     .button.secondary { background: #fff; color: var(--ink); border-color: var(--line); }
-    .hero { min-height: calc(100vh - 68px); display: block; padding: 34px 0 54px; }
+    .hero { min-height: calc(100vh - 68px); display: grid; grid-template-columns: minmax(0, .98fr) minmax(360px, .72fr); gap: 46px; align-items: center; padding: 34px 0 54px; }
     .hero-main { max-width: 760px; }
+    .hero-visual { position: relative; min-height: 620px; display: grid; align-items: center; }
+    .fox-showcase { position: relative; min-height: 570px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: linear-gradient(180deg, #fff 0%, #f5f8fc 100%); box-shadow: 0 24px 70px rgba(16,24,40,.12); }
+    .fox-showcase img { position: absolute; right: -22px; bottom: -34px; width: min(118%, 560px); height: auto; display: block; }
+    .fox-badge { position: absolute; left: 20px; top: 20px; right: 20px; background: rgba(255,255,255,.92); border: 1px solid var(--line); border-radius: 8px; padding: 16px; box-shadow: 0 12px 30px rgba(16,24,40,.08); }
+    .fox-badge b { display:block; font-size: 20px; margin-bottom: 6px; }
+    .fox-badge span { display:block; color: var(--muted); font-size: 14px; line-height: 1.4; }
+    .fox-stats { position: absolute; left: 20px; bottom: 22px; display: grid; gap: 10px; width: 190px; }
+    .fox-stat { background: rgba(17,24,39,.92); color:#fff; border-radius: 8px; padding: 14px; border: 1px solid rgba(255,255,255,.16); box-shadow: 0 12px 28px rgba(16,24,40,.18); }
+    .fox-stat strong { display:block; font-size: 24px; line-height: 1; }
+    .fox-stat span { color:#cbd5e1; font-size: 12px; display:block; margin-top: 5px; }
     .eyebrow { color: var(--gold); font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 10px; }
     h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: .96; letter-spacing: 0; max-width: 760px; }
     h1 span { color: #2563eb; }
@@ -1456,6 +1466,9 @@ function landingHtml() {
     .footer-column p { margin:0; line-height:1.55; }
     @media (max-width: 920px) {
       .hero { grid-template-columns: 1fr; min-height: auto; padding-top: 12px; }
+      .hero-visual { min-height: 460px; }
+      .fox-showcase { min-height: 440px; }
+      .fox-showcase img { width: min(96%, 420px); right: 0; }
       .demo-stage, .report-viewer { max-width: 720px; }
       .pricing, .membership-stats, .membership-plans, .bands, .sample-grid, .reviews, .faq, .tools-grid, .footer-grid { grid-template-columns: 1fr; }
       .compare-row { grid-template-columns: 1fr; }
@@ -1470,6 +1483,12 @@ function landingHtml() {
       .nav { display: none; }
       h1 { font-size: 42px; }
       .lead { font-size: 16px; }
+      .hero-visual { min-height: 390px; }
+      .fox-showcase { min-height: 370px; }
+      .fox-showcase img { width: min(112%, 390px); right: -18px; bottom: -24px; }
+      .fox-badge { left: 12px; right: 12px; top: 12px; padding: 12px; }
+      .fox-badge b { font-size: 16px; }
+      .fox-stats { left: 12px; bottom: 12px; width: 150px; }
       .vin-search-row { grid-template-columns: 1fr; }
       .mascot-card { align-items: flex-start; }
       .mascot-card img { width: 88px; height: 104px; }
@@ -1520,6 +1539,16 @@ function landingHtml() {
         </div>
         <div class="checkout-strip"><span>SSL secured</span><strong>stripe</strong><span>256-bit encrypted checkout</span></div>
       </div>
+      <aside class="hero-visual" aria-label="Cheaper Carfax Report preview">
+        <div class="fox-showcase">
+          <div class="fox-badge"><b>Official-style report access, without retail pricing.</b><span>Enter a VIN or plate, complete secure checkout, and open your report link from a saved customer portal.</span></div>
+          <img src="/assets/car-fox.jpg" alt="Cheaper Carfax Report mascot" />
+          <div class="fox-stats">
+            <div class="fox-stat"><strong>$5</strong><span>single report</span></div>
+            <div class="fox-stat"><strong>4.8/5</strong><span>buyer feedback</span></div>
+          </div>
+        </div>
+      </aside>
     </div>
 
     <section class="shell report-preview-section">
