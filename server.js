@@ -1788,6 +1788,9 @@ function landingHtml() {
 
   <script>
     let heroSearchMode = 'vin';
+    const knownPlatePreview = {
+      'CA:9LUT251': '2006 BMW 330Ci'
+    };
     function setHeroSearchMode(mode) {
       heroSearchMode = mode;
       document.getElementById('vinTab').classList.toggle('active', mode === 'vin');
@@ -1802,13 +1805,17 @@ function landingHtml() {
       const result = document.getElementById('heroVinResult');
       if (heroSearchMode === 'plate') {
         const plate = input.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const state = document.getElementById('heroState').value;
         input.value = plate;
         if (!plate) {
           result.textContent = 'Enter a license plate to start. Full plate lookup is available after checkout.';
           result.className = 'vin-result show warn';
           return;
         }
-        result.textContent = 'Plate lookup ready for ' + plate + ' (' + document.getElementById('heroState').value + '). Full report available after checkout.';
+        const previewVehicle = knownPlatePreview[state + ':' + plate];
+        result.textContent = previewVehicle
+          ? 'Plate lookup ready for ' + previewVehicle + '. Full report available after checkout.'
+          : 'Plate lookup ready for ' + plate + ' (' + state + '). Full vehicle details available after checkout.';
         result.className = 'vin-result show ok';
         return;
       }
