@@ -58,6 +58,11 @@ function blankStockItem(url, now = new Date().toISOString()) {
   };
 }
 
+function extractFirstUrl(value) {
+  const match = String(value || '').match(/https?:\/\/[^\s"'<>]+/i);
+  return match ? match[0].replace(/[),.;:!?，。；：！？）]+$/u, '') : '';
+}
+
 function ensureData() {
   fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
   if (!fs.existsSync(DATA_FILE)) {
@@ -91,14 +96,14 @@ function migrateData(data) {
     order.sessionId = String(order.sessionId || '');
     order.customerEmail = String(order.customerEmail || '');
     order.customerName = String(order.customerName || '');
-    order.resultUrl = String(order.resultUrl || '');
+    order.resultUrl = extractFirstUrl(order.resultUrl) || String(order.resultUrl || '');
     order.resultType = String(order.resultType || '');
     order.error = String(order.error || '');
   });
   data.inventory = Array.isArray(data.inventory) ? data.inventory : [];
   data.inventory.forEach((item) => {
     item.id = String(item.id || crypto.randomBytes(6).toString('hex'));
-    item.url = String(item.url || '');
+    item.url = extractFirstUrl(item.url) || String(item.url || '');
     item.status = item.status === 'assigned' ? 'assigned' : 'available';
     item.addedAt = String(item.addedAt || '');
     item.assignedAt = String(item.assignedAt || '');
@@ -724,6 +729,29 @@ function planLabel(plan) {
   return 'Checkout';
 }
 
+function publicOrder(order) {
+  return {
+    id: order.id,
+    plan: order.plan,
+    label: planLabel(order.plan),
+    status: order.status,
+    createdAt: order.createdAt,
+    fulfilledAt: order.fulfilledAt,
+    customerEmail: order.customerEmail,
+    customerName: order.customerName,
+    resultUrl: extractFirstUrl(order.resultUrl) || order.resultUrl,
+    resultType: order.resultType,
+    error: order.error
+  };
+}
+
+function recentOrders(data, limit = 20) {
+  return Object.values(data.orders || {})
+    .sort((a, b) => String(b.fulfilledAt || b.createdAt).localeCompare(String(a.fulfilledAt || a.createdAt)))
+    .slice(0, limit)
+    .map(publicOrder);
+}
+
 function publicOrigin(req) {
   const proto = req.headers['x-forwarded-proto'] || 'https';
   return `${proto}://${req.headers.host}`;
@@ -900,7 +928,7 @@ function addInventoryLinks(data, rawLinks) {
   const added = [];
   const skipped = [];
   rawLinks
-    .map((link) => String(link || '').trim())
+    .map((link) => extractFirstUrl(link))
     .filter(Boolean)
     .forEach((url) => {
       if (existing.has(url)) {
@@ -922,6 +950,7 @@ function assignInventory(data, count, token) {
   }
   const now = new Date().toISOString();
   return available.slice(0, count).map((item) => {
+    item.url = extractFirstUrl(item.url) || item.url;
     item.status = 'assigned';
     item.assignedAt = now;
     item.assignedBundle = token;
@@ -932,6 +961,7 @@ function assignInventory(data, count, token) {
 function assignSingleInventoryLink(data) {
   const item = data.inventory.find((stockItem) => stockItem.status === 'available');
   if (!item) return null;
+  item.url = extractFirstUrl(item.url) || item.url;
   item.status = 'assigned';
   item.assignedAt = new Date().toISOString();
   item.assignedBundle = 'single-sale';
@@ -2254,6 +2284,15 @@ function adminHtml() {
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
     .muted { color: #667085; }
     .result { line-height: 1.5; }
+    .order-list { display: grid; gap: 10px; }
+    .order-item { border: 1px solid #e3e8ef; border-radius: 8px; padding: 10px; background: #fbfcfe; }
+    .order-item strong { display: block; margin-bottom: 4px; }
+    .order-meta { color: #667085; font-size: 13px; line-height: 1.45; }
+    .order-status { display: inline-flex; align-items: center; min-height: 22px; border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 800; margin-top: 6px; }
+    .order-status.fulfilled { background: #edf8f2; color: #087443; }
+    .order-status.pending { background: #fff7e6; color: #9a5b00; }
+    .order-status.failed { background: #fff1f0; color: #b42318; }
+    .order-link { display: inline-block; margin-top: 7px; color: #1463ff; font-weight: 800; overflow-wrap: anywhere; }
     @media (max-width: 760px) { .stats, .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -2284,6 +2323,14 @@ function adminHtml() {
         <button id="singleLink" type="button">Get single report link</button>
         <button id="copySingleLink" class="secondary" type="button" disabled>Copy link</button>
         <p class="result" id="singleResult"></p>
+      </section>
+
+      <section class="box">
+        <h2>Recent Purchases</h2>
+        <p class="muted">Latest 20 website orders from checkout.</p>
+        <div class="order-list" id="orderRows">
+          <p class="muted">Loading purchases...</p>
+        </div>
       </section>
 
       <section class="box">
@@ -2327,6 +2374,41 @@ function adminHtml() {
       document.getElementById('stockAssigned').textContent = data.assigned;
       document.getElementById('stockTotal').textContent = data.total;
     }
+    function formatOrderDate(value) {
+      if (!value) return 'No time saved';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+    }
+    function renderOrders(orders) {
+      const rows = document.getElementById('orderRows');
+      if (!orders.length) {
+        rows.innerHTML = '<p class="muted">No purchases yet.</p>';
+        return;
+      }
+      rows.innerHTML = '';
+      orders.forEach((order) => {
+        const item = document.createElement('div');
+        item.className = 'order-item';
+        const buyer = order.customerName || order.customerEmail || 'Unknown customer';
+        const when = formatOrderDate(order.fulfilledAt || order.createdAt);
+        const link = order.resultUrl ? '<a class="order-link" href="' + order.resultUrl + '" target="_blank" rel="noopener">Open delivered link</a>' : '';
+        item.innerHTML =
+          '<strong>' + buyer + '</strong>' +
+          '<div class="order-meta">' + when + '<br>' + order.label + (order.customerEmail && order.customerName ? '<br>' + order.customerEmail : '') + '</div>' +
+          '<span class="order-status ' + order.status + '">' + order.status + '</span>' +
+          (order.error ? '<div class="order-meta">' + order.error + '</div>' : '') +
+          link;
+        rows.appendChild(item);
+      });
+    }
+    async function loadOrders() {
+      try {
+        const data = await api('/api/orders/recent');
+        renderOrders(data.orders || []);
+      } catch (error) {
+        document.getElementById('orderRows').innerHTML = '<p class="muted">' + error.message + '</p>';
+      }
+    }
     document.getElementById('addStock').addEventListener('click', async () => {
       const links = document.getElementById('stockLinks').value.split('\\n').map((item) => item.trim()).filter(Boolean);
       try {
@@ -2337,6 +2419,7 @@ function adminHtml() {
         document.getElementById('stockResult').textContent = 'Added ' + data.added + ' links. Skipped duplicates: ' + data.skipped + '.';
         document.getElementById('stockLinks').value = '';
         await loadInventory();
+        await loadOrders();
       } catch (error) {
         document.getElementById('stockResult').textContent = error.message;
       }
@@ -2351,6 +2434,7 @@ function adminHtml() {
         copyButton.disabled = false;
         copyButton.dataset.url = data.url;
         await loadInventory();
+        await loadOrders();
       } catch (error) {
         document.getElementById('singleResult').textContent = error.message;
       }
@@ -2376,12 +2460,17 @@ function adminHtml() {
         document.getElementById('links').value = '';
         document.getElementById('quantity').value = '';
         await loadInventory();
+        await loadOrders();
       } catch (error) {
         document.getElementById('result').textContent = error.message;
       }
     });
-    document.getElementById('refresh').addEventListener('click', loadInventory);
+    document.getElementById('refresh').addEventListener('click', async () => {
+      await loadInventory();
+      await loadOrders();
+    });
     loadInventory();
+    loadOrders();
   </script>
 </body>
 </html>`;
@@ -2403,6 +2492,12 @@ async function handleApi(req, res, pathname) {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
     return sendJson(res, 200, inventorySummary(data));
+  }
+
+  if (req.method === 'GET' && pathname === '/api/orders/recent') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    return sendJson(res, 200, { orders: recentOrders(data, 20) });
   }
 
   if (req.method === 'POST' && pathname === '/api/inventory/add') {
