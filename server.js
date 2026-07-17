@@ -708,7 +708,7 @@ function reportCountForPlan(plan) {
   if (plan === 'single') return 1;
   if (plan === 'bundle') return 12;
   if (plan === 'value') return 32;
-  if (plan === 'monthly') return 15;
+  if (plan === 'monthly') return 30;
   if (plan === 'starter') return 30;
   if (plan === 'pro') return 75;
   if (plan === 'premium') return 150;
@@ -808,8 +808,7 @@ async function createStripeCheckoutSession(req, order) {
     success_url: `${origin}/order/${order.id}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/#pricing`,
     'metadata[order_id]': order.id,
-    'metadata[plan]': order.plan,
-    'phone_number_collection[enabled]': 'true'
+    'metadata[plan]': order.plan
   };
   if (stripeModeForPlan(order.plan) === 'payment') {
     params.customer_creation = 'always';
@@ -984,7 +983,7 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
 
   order.sessionId = session.id || order.sessionId;
   order.customerEmail = session.customer_details && session.customer_details.email ? session.customer_details.email : order.customerEmail;
-  order.customerName = session.customer_details && session.customer_details.name ? session.customer_details.name : order.customerName;
+  order.customerName = '';
   order.paidAt = order.paidAt || new Date().toISOString();
   const origin = publicOrigin(req);
 
@@ -1015,8 +1014,8 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
     writeData(data);
     return order;
   }
-  const customerName = order.customerName || `${planLabel(order.plan)} Customer`;
-  const accountKey = normalizeAccount(order.customerEmail || session.customer_details && session.customer_details.phone || '');
+  const customerName = order.customerEmail || `${planLabel(order.plan)} Customer`;
+  const accountKey = normalizeAccount(order.customerEmail || '');
   data.bundles[token] = {
     token,
     customerName,
@@ -2399,12 +2398,12 @@ function adminHtml() {
       orders.forEach((order) => {
         const item = document.createElement('div');
         item.className = 'order-item';
-        const buyer = order.customerName || order.customerEmail || 'Unknown customer';
+        const buyer = order.customerEmail || 'Unknown customer';
         const when = formatOrderDate(order.paidAt || order.fulfilledAt || order.createdAt);
         const link = order.resultUrl ? '<a class="order-link" href="' + order.resultUrl + '" target="_blank" rel="noopener">Open delivered link</a>' : '';
         item.innerHTML =
           '<strong>' + buyer + '</strong>' +
-          '<div class="order-meta">' + when + '<br>' + order.label + (order.customerEmail && order.customerName ? '<br>' + order.customerEmail : '') + '</div>' +
+          '<div class="order-meta">' + when + '<br>' + order.label + '</div>' +
           '<span class="order-status ' + order.status + '">' + order.status + '</span>' +
           (order.error ? '<div class="order-meta">' + order.error + '</div>' : '') +
           link;
