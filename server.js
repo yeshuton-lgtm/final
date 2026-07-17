@@ -96,6 +96,7 @@ function migrateData(data) {
     order.sessionId = String(order.sessionId || '');
     order.customerEmail = String(order.customerEmail || '');
     order.customerName = String(order.customerName || '');
+    order.paidAt = String(order.paidAt || '');
     order.resultUrl = extractFirstUrl(order.resultUrl) || String(order.resultUrl || '');
     order.resultType = String(order.resultType || '');
     order.error = String(order.error || '');
@@ -737,6 +738,7 @@ function publicOrder(order) {
     status: order.status,
     createdAt: order.createdAt,
     fulfilledAt: order.fulfilledAt,
+    paidAt: order.paidAt,
     customerEmail: order.customerEmail,
     customerName: order.customerName,
     resultUrl: extractFirstUrl(order.resultUrl) || order.resultUrl,
@@ -747,7 +749,7 @@ function publicOrder(order) {
 
 function recentOrders(data, limit = 20) {
   return Object.values(data.orders || {})
-    .sort((a, b) => String(b.fulfilledAt || b.createdAt).localeCompare(String(a.fulfilledAt || a.createdAt)))
+    .sort((a, b) => String(b.paidAt || b.fulfilledAt || b.createdAt).localeCompare(String(a.paidAt || a.fulfilledAt || a.createdAt)))
     .slice(0, limit)
     .map(publicOrder);
 }
@@ -971,6 +973,7 @@ function assignSingleInventoryLink(data) {
 async function fulfillPaidOrder(req, data, order, sessionId) {
   if (order.status === 'fulfilled') return order;
   if (order.status === 'failed') return order;
+  if (order.status === 'manual') return order;
   const session = await retrieveStripeCheckoutSession(sessionId || order.sessionId);
   if (session.payment_status !== 'paid') {
     order.status = 'pending';
@@ -982,13 +985,15 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
   order.sessionId = session.id || order.sessionId;
   order.customerEmail = session.customer_details && session.customer_details.email ? session.customer_details.email : order.customerEmail;
   order.customerName = session.customer_details && session.customer_details.name ? session.customer_details.name : order.customerName;
+  order.paidAt = order.paidAt || new Date().toISOString();
   const origin = publicOrigin(req);
 
   if (order.plan === 'single') {
     const url = assignSingleInventoryLink(data);
     if (!url) {
-      order.status = 'failed';
-      order.error = 'No available inventory links left. Please contact support.';
+      order.status = 'manual';
+      order.resultType = 'manual';
+      order.error = 'Paid order needs manual delivery because inventory is empty.';
       writeData(data);
       return order;
     }
@@ -1004,8 +1009,9 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
   const token = crypto.randomBytes(5).toString('hex');
   const stockLinks = assignInventory(data, count, token);
   if (!stockLinks) {
-    order.status = 'failed';
-    order.error = `Not enough inventory. Please contact support to finish this order.`;
+    order.status = 'manual';
+    order.resultType = 'manual';
+    order.error = `Paid order needs manual delivery because available inventory is lower than ${count} reports.`;
     writeData(data);
     return order;
   }
@@ -2225,14 +2231,17 @@ function checkoutPendingHtml(plan, detail = '') {
 function orderHtml(order) {
   const fulfilled = order.status === 'fulfilled';
   const failed = order.status === 'failed';
-  const title = fulfilled ? 'Your report is ready' : failed ? 'Order needs help' : 'Payment is being confirmed';
+  const manual = order.status === 'manual';
+  const title = fulfilled ? 'Your report is ready' : manual ? 'Payment received' : failed ? 'Order needs help' : 'Payment is being confirmed';
   const message = fulfilled
     ? (order.resultType === 'single' ? 'Open your report link below.' : 'Open your customer portal link below. Your reports are saved there.')
-    : failed
-      ? (order.error || 'Please contact support to finish this order.')
-      : 'If you already paid, refresh this page in a few seconds.';
+    : manual
+      ? 'Your payment was received. We are preparing your report access and will contact you shortly.'
+      : failed
+        ? (order.error || 'Please contact support to finish this order.')
+        : 'If you already paid, refresh this page in a few seconds.';
   const action = fulfilled
-    ? `<a class="button" href="${htmlAttr(order.resultUrl)}" target="_blank" rel="noopener">Open ${order.resultType === 'single' ? 'Report' : 'Portal'}</a><p class="link">${htmlAttr(order.resultUrl)}</p>`
+    ? `<a class="button" href="${htmlAttr(order.resultUrl)}">Open ${order.resultType === 'single' ? 'Report' : 'Portal'}</a><p class="link">${htmlAttr(order.resultUrl)}</p>`
     : `<a class="button" href="/#pricing">Back to plans</a>`;
   return `<!doctype html>
 <html lang="en">
@@ -2290,6 +2299,7 @@ function adminHtml() {
     .order-meta { color: #667085; font-size: 13px; line-height: 1.45; }
     .order-status { display: inline-flex; align-items: center; min-height: 22px; border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 800; margin-top: 6px; }
     .order-status.fulfilled { background: #edf8f2; color: #087443; }
+    .order-status.manual { background: #eef4ff; color: #175cd3; }
     .order-status.pending { background: #fff7e6; color: #9a5b00; }
     .order-status.failed { background: #fff1f0; color: #b42318; }
     .order-link { display: inline-block; margin-top: 7px; color: #1463ff; font-weight: 800; overflow-wrap: anywhere; }
@@ -2390,7 +2400,7 @@ function adminHtml() {
         const item = document.createElement('div');
         item.className = 'order-item';
         const buyer = order.customerName || order.customerEmail || 'Unknown customer';
-        const when = formatOrderDate(order.fulfilledAt || order.createdAt);
+        const when = formatOrderDate(order.paidAt || order.fulfilledAt || order.createdAt);
         const link = order.resultUrl ? '<a class="order-link" href="' + order.resultUrl + '" target="_blank" rel="noopener">Open delivered link</a>' : '';
         item.innerHTML =
           '<strong>' + buyer + '</strong>' +
