@@ -1660,7 +1660,7 @@ function landingHtml() {
     .section-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
     h2 { margin: 0; font-size: 32px; line-height: 1.12; letter-spacing: 0; }
     .section-head p { margin: 0; color: var(--muted); max-width: 560px; line-height: 1.5; }
-    .pricing { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .pricing { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
     .price-card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: flex; flex-direction: column; min-height: 280px; }
     .price-card.featured { border-color: #b9903c; box-shadow: 0 14px 40px rgba(192,138,40,.14); }
     .price-card.popular { border-color: var(--blue); box-shadow: 0 14px 40px rgba(37,99,235,.13); }
@@ -1869,7 +1869,7 @@ function landingHtml() {
     <section id="pricing" class="shell">
       <div class="section-head">
         <h2>Simple Report Pricing</h2>
-        <p>Choose single checks for one car, bundles for regular shoppers, or monthly dealer access for repeat inventory and auction work.</p>
+        <p>Choose single checks for one car or bundles for regular shoppers. Monthly dealer plans are listed separately below.</p>
       </div>
       <div class="pricing">
         <article class="price-card featured">
@@ -1892,13 +1892,6 @@ function landingHtml() {
           <p>Best value for active buyers and small dealers.</p>
           <ul><li>32 report credits</li><li>Customer account portal</li><li>Reopen previous reports</li></ul>
           <a class="button secondary" href="${valueCheckout}">Buy 32 Pack</a>
-        </article>
-        <article class="price-card">
-          <h3>Monthly Credits</h3>
-          <div class="price">$95 <small>/ month</small></div>
-          <p>Monthly report credits with batch delivery for dealer workflow.</p>
-          <ul><li>15 reports delivered first</li><li>Dealer-style account portal</li><li>VIN history and vehicle notes</li></ul>
-          <a class="button secondary" href="#membership">View Monthly Plans</a>
         </article>
       </div>
     </section>
