@@ -25,6 +25,25 @@ const STRIPE_STARTER_PRICE_ID = process.env.STRIPE_STARTER_PRICE_ID || '';
 const STRIPE_PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID || '';
 const STRIPE_PREMIUM_PRICE_ID = process.env.STRIPE_PREMIUM_PRICE_ID || '';
 
+const PLAN_DEFINITIONS = {
+  single: { label: 'Single Report', quantity: 1, amount: 550, mode: 'payment' },
+  bundle: { label: '11 Report Bundle', quantity: 11, amount: 5000, mode: 'payment' },
+  value: { label: '33 Report Bundle', quantity: 33, amount: 8000, mode: 'payment' },
+  monthly: { label: 'Starter Monthly', quantity: 10, amount: 4000, mode: 'subscription' },
+  starter: { label: 'Starter Monthly', quantity: 10, amount: 4000, mode: 'subscription' },
+  pro: { label: 'Growth Monthly', quantity: 22, amount: 6900, mode: 'subscription' },
+  premium: { label: 'Volume Monthly', quantity: 50, amount: 9900, mode: 'subscription' }
+};
+
+function customQuantity(value) {
+  const quantity = Math.max(2, Math.min(100, Number.parseInt(value, 10) || 2));
+  return quantity;
+}
+
+function customBundleAmount(quantity) {
+  return customQuantity(quantity) * 550;
+}
+
 const starterReports = [
   'https://carfax.codes/RSRK1NH9DP',
   'https://carfax.codes/HUP7OCNYL6',
@@ -90,6 +109,7 @@ function migrateData(data) {
   Object.values(data.orders).forEach((order) => {
     order.id = String(order.id || '');
     order.plan = String(order.plan || '');
+    order.quantity = Math.max(0, Number.parseInt(order.quantity, 10) || 0);
     order.status = String(order.status || 'pending');
     order.createdAt = String(order.createdAt || '');
     order.fulfilledAt = String(order.fulfilledAt || '');
@@ -495,18 +515,18 @@ ${urls.map(([loc, priority]) => `  <url>
 
 const SEO_PAGES = {
   '/cheap-carfax-report': {
-    title: 'Cheap Carfax Report for $5 | Cheaper Carfax Report',
+    title: 'Cheap Carfax Report for $5.50 | Cheaper Carfax Report',
     description: 'Get a cheap vehicle history report with fast checkout, saved report access, and single report or bundle pricing for shoppers and small dealers.',
     eyebrow: 'Cheap vehicle history reports',
     h1: 'Cheap Carfax Report Without Retail Pricing',
     lead: 'Cheaper Carfax Report helps buyers and small dealers check vehicles before they buy. Start with a single report, choose a report bundle, or use monthly credits for repeat checking.',
-    bullets: ['Single reports from $5', 'Bundle pricing for repeat vehicle checks', 'Saved customer portal for reopening reports'],
+    bullets: ['Single reports from $5.50', 'Bundle pricing for repeat vehicle checks', 'Saved customer portal for reopening reports'],
     sections: [
       ['Why shoppers use us', 'Vehicle history reports can get expensive when you are comparing more than one car. Our report portal keeps pricing simple and gives you one place to reopen previous reports.'],
       ['What you receive', 'After checkout, your report or customer portal link is created for your order. The portal can save VIN history, vehicle notes, and reopen links so your checked cars stay organized.'],
       ['Best for', 'Used car shoppers, auction buyers, small dealerships, and anyone comparing multiple vehicles before making a purchase.']
     ],
-    cta: 'Get A $5 Report'
+    cta: 'Get A $5.50 Report'
   },
   '/carfax-alternative': {
     title: 'Carfax Alternative With Better Pricing | Cheaper Carfax Report',
@@ -556,10 +576,10 @@ const SEO_PAGES = {
     eyebrow: 'Refund policy',
     h1: 'Refund Policy For Digital Report Access',
     lead: 'We keep the policy simple: contact us quickly if an order has not been fulfilled, and contact support if a delivered link does not open or the wrong product is delivered.',
-    bullets: ['Before delivery, orders can be reviewed for cancellation', 'Opened digital reports are normally non-refundable', 'Broken or incorrect links can be replaced'],
+    bullets: ['Before delivery, orders can be reviewed for cancellation', 'Order issues are handled by support', 'Broken or incorrect links can be replaced'],
     sections: [
       ['Before delivery', 'If your order has not been fulfilled yet, email us as soon as possible and we can review cancellation or refund options.'],
-      ['After report access', 'Vehicle history reports are digital items. Once access has been delivered or opened, completed reports are normally non-refundable.'],
+      ['Order issues', 'If a delivered link does not open or the wrong product is delivered, contact support and we will help resolve the issue.'],
       ['Order issues', 'If a report link does not open or the wrong product is delivered, contact jojicookin@gmail.com and we will help resolve the issue.']
     ],
     cta: 'Contact Support'
@@ -655,7 +675,7 @@ function seoPageHtml(pathname) {
         <h1>${htmlAttr(page.h1)}</h1>
         <p class="lead">${htmlAttr(page.lead)}</p>
       </div>
-      <div class="hero-card"><b>$5</b><span>single report option with bundles and monthly credits available.</span></div>
+      <div class="hero-card"><b>$5.50</b><span>single report option with bundles and monthly credits available.</span></div>
     </div>
     <div class="shell bullets">
       ${page.bullets.map((item) => `<div class="bullet">${htmlAttr(item)}</div>`).join('')}
@@ -694,6 +714,8 @@ function checkoutUrlForPlan(plan) {
 }
 
 function stripePriceForPlan(plan) {
+  if (PLAN_DEFINITIONS[plan]) return 'dynamic';
+  if (plan === 'custom') return 'dynamic';
   if (plan === 'single') return STRIPE_SINGLE_PRICE_ID;
   if (plan === 'bundle') return STRIPE_BUNDLE_PRICE_ID;
   if (plan === 'value') return STRIPE_VALUE_PRICE_ID;
@@ -704,29 +726,19 @@ function stripePriceForPlan(plan) {
   return '';
 }
 
-function reportCountForPlan(plan) {
-  if (plan === 'single') return 1;
-  if (plan === 'bundle') return 12;
-  if (plan === 'value') return 32;
-  if (plan === 'monthly') return 30;
-  if (plan === 'starter') return 30;
-  if (plan === 'pro') return 75;
-  if (plan === 'premium') return 150;
+function reportCountForPlan(plan, order = null) {
+  if (plan === 'custom') return customQuantity(order && order.quantity);
+  if (PLAN_DEFINITIONS[plan]) return PLAN_DEFINITIONS[plan].quantity;
   return 0;
 }
 
 function stripeModeForPlan(plan) {
-  return ['monthly', 'starter', 'pro', 'premium'].includes(plan) ? 'subscription' : 'payment';
+  return PLAN_DEFINITIONS[plan] ? PLAN_DEFINITIONS[plan].mode : 'payment';
 }
 
-function planLabel(plan) {
-  if (plan === 'single') return 'Single Report';
-  if (plan === 'bundle') return '12 Report Bundle';
-  if (plan === 'value') return '32 Report Bundle';
-  if (plan === 'monthly') return 'Monthly Credits';
-  if (plan === 'starter') return 'Starter Monthly';
-  if (plan === 'pro') return 'Pro Monthly';
-  if (plan === 'premium') return 'Premium Monthly';
+function planLabel(plan, order = null) {
+  if (plan === 'custom') return `${customQuantity(order && order.quantity)} Report Custom Bundle`;
+  if (PLAN_DEFINITIONS[plan]) return PLAN_DEFINITIONS[plan].label;
   return 'Checkout';
 }
 
@@ -734,7 +746,7 @@ function publicOrder(order) {
   return {
     id: order.id,
     plan: order.plan,
-    label: planLabel(order.plan),
+    label: planLabel(order.plan, order),
     status: order.status,
     createdAt: order.createdAt,
     fulfilledAt: order.fulfilledAt,
@@ -798,19 +810,28 @@ function stripeRequest(method, stripePath, params = null) {
 }
 
 async function createStripeCheckoutSession(req, order) {
-  const price = stripePriceForPlan(order.plan);
-  if (!price) throw new Error(`Stripe price is not configured for ${planLabel(order.plan)}.`);
+  const plan = PLAN_DEFINITIONS[order.plan] || null;
+  const quantity = order.plan === 'custom' ? customQuantity(order.quantity) : reportCountForPlan(order.plan, order);
+  const amount = order.plan === 'custom' ? customBundleAmount(quantity) : plan && plan.amount;
+  const label = planLabel(order.plan, order);
+  if (!amount || !quantity) throw new Error(`Stripe price is not configured for ${label}.`);
   const origin = publicOrigin(req);
+  const mode = stripeModeForPlan(order.plan);
   const params = {
-    mode: stripeModeForPlan(order.plan),
-    'line_items[0][price]': price,
+    mode,
+    'line_items[0][price_data][currency]': 'usd',
+    'line_items[0][price_data][unit_amount]': String(amount),
+    'line_items[0][price_data][product_data][name]': `Cheaper Carfax Report - ${label}`,
     'line_items[0][quantity]': '1',
     success_url: `${origin}/order/${order.id}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/#pricing`,
     'metadata[order_id]': order.id,
-    'metadata[plan]': order.plan
+    'metadata[plan]': order.plan,
+    'metadata[quantity]': String(quantity)
   };
-  if (stripeModeForPlan(order.plan) === 'payment') {
+  if (mode === 'subscription') {
+    params['line_items[0][price_data][recurring][interval]'] = 'month';
+  } else {
     params.customer_creation = 'always';
   }
   return stripeRequest('POST', '/v1/checkout/sessions', params);
@@ -969,6 +990,32 @@ function assignSingleInventoryLink(data) {
   return item.url;
 }
 
+function releaseUnusedBundleInventory(data, token) {
+  const bundle = data.bundles[token];
+  if (!bundle) return null;
+  const unusedUrls = new Set(bundle.reports.filter((report) => !report.used).map((report) => extractFirstUrl(report.url) || report.url).filter(Boolean));
+  let released = 0;
+  data.inventory.forEach((item) => {
+    const itemUrl = extractFirstUrl(item.url) || item.url;
+    if (unusedUrls.has(itemUrl) && item.status === 'assigned' && item.assignedBundle === token) {
+      item.status = 'available';
+      item.assignedAt = '';
+      item.assignedBundle = '';
+      released += 1;
+    }
+  });
+  delete data.bundles[token];
+  Object.values(data.orders || {}).forEach((order) => {
+    if (String(order.resultUrl || '').includes(`/r/${token}`)) {
+      order.status = 'manual';
+      order.resultType = 'manual';
+      order.resultUrl = '';
+      order.error = 'Bundle was released back to inventory by admin.';
+    }
+  });
+  return { released, unused: unusedUrls.size };
+}
+
 async function fulfillPaidOrder(req, data, order, sessionId) {
   if (order.status === 'fulfilled') return order;
   if (order.status === 'failed') return order;
@@ -1004,7 +1051,7 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
     return order;
   }
 
-  const count = reportCountForPlan(order.plan);
+  const count = reportCountForPlan(order.plan, order);
   const token = crypto.randomBytes(5).toString('hex');
   const stockLinks = assignInventory(data, count, token);
   if (!stockLinks) {
@@ -1539,6 +1586,7 @@ function landingHtml() {
   const singleCheckout = '/checkout/single';
   const bundleCheckout = '/checkout/bundle';
   const valueCheckout = '/checkout/value';
+  const customCheckout = '/checkout/custom';
   const monthlyCheckout = '/checkout/monthly';
   const starterCheckout = '/checkout/starter';
   const proCheckout = '/checkout/pro';
@@ -1549,10 +1597,10 @@ function landingHtml() {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cheaper Carfax Report | Dealer Report Portal</title>
-  <meta name="description" content="Cheaper Carfax Report offers $5 vehicle history report access, bundles, monthly report credits, license plate lookup, and a saved customer report portal." />
+  <meta name="description" content="Cheaper Carfax Report offers $5.50 vehicle history report access, bundles, monthly report credits, license plate lookup, and a saved customer report portal." />
   <link rel="canonical" href="https://cheapercarfaxreport.com/" />
   <meta property="og:title" content="Cheaper Carfax Report" />
-  <meta property="og:description" content="Get a vehicle history report from $5 with bundles, monthly credits, and saved report history." />
+  <meta property="og:description" content="Get a vehicle history report from $5.50 with bundles, monthly credits, and saved report history." />
   <meta property="og:url" content="https://cheapercarfaxreport.com/" />
   <meta property="og:type" content="website" />
   <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -1567,9 +1615,12 @@ function landingHtml() {
     .brand-mark { width: 40px; height: 40px; border-radius: 8px; overflow: hidden; background: #fff; border: 1px solid var(--line); }
     .brand-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .nav { display: flex; gap: 18px; color: var(--muted); font-size: 14px; }
-    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; border-radius: 6px; border: 1px solid transparent; padding: 10px 14px; background: var(--blue); color: #fff; font-weight: 800; cursor: pointer; }
-    .button:hover { background: var(--blue-dark); }
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; border-radius: 6px; border: 1px solid transparent; padding: 10px 14px; background: var(--blue); color: #fff; font-weight: 800; cursor: pointer; box-shadow: 0 8px 18px rgba(24,91,216,.18); transition: transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease; }
+    .button:hover { background: var(--blue-dark); transform: translateY(-1px); box-shadow: 0 12px 26px rgba(24,91,216,.24); }
+    .button:active { transform: translateY(0); box-shadow: 0 5px 12px rgba(24,91,216,.18); }
+    .button:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(37,99,235,.22); outline-offset: 2px; }
     .button.secondary { background: #fff; color: var(--ink); border-color: var(--line); }
+    .button.secondary:hover { background: #f8fbff; border-color: #b8c7dd; color: var(--blue); }
     .hero { min-height: calc(100vh - 68px); display: grid; grid-template-columns: minmax(0, .98fr) minmax(360px, .72fr); gap: 46px; align-items: center; padding: 34px 0 54px; }
     .hero-main { max-width: 760px; }
     .hero-visual { position: relative; min-height: 620px; display: grid; align-items: center; }
@@ -1661,7 +1712,8 @@ function landingHtml() {
     h2 { margin: 0; font-size: 32px; line-height: 1.12; letter-spacing: 0; }
     .section-head p { margin: 0; color: var(--muted); max-width: 560px; line-height: 1.5; }
     .pricing { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-    .price-card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: flex; flex-direction: column; min-height: 280px; }
+    .price-card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; min-height: 300px; box-shadow: 0 10px 28px rgba(16,24,40,.05); }
+    .price-card:hover { border-color: #b8c7dd; box-shadow: 0 18px 46px rgba(16,24,40,.09); }
     .price-card.featured { border-color: #b9903c; box-shadow: 0 14px 40px rgba(192,138,40,.14); }
     .price-card.popular { border-color: var(--blue); box-shadow: 0 14px 40px rgba(37,99,235,.13); }
     .price-card h3 { margin: 0 0 8px; font-size: 20px; }
@@ -1671,6 +1723,15 @@ function landingHtml() {
     .price-card ul { margin: 0 0 18px; padding: 0; list-style: none; display: grid; gap: 10px; color: #344054; font-size: 14px; }
     .price-card li::before { content: "Check"; color: var(--green); font-weight: 900; margin-right: 8px; }
     .price-card .button { margin-top: auto; }
+    .custom-bundle-box { margin: 14px 0 18px; border: 1px solid #dbe5f5; border-radius: 8px; background: linear-gradient(180deg, #f8fbff, #fff); padding: 12px; }
+    .custom-bundle-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 10px; }
+    .custom-bundle-head b { color: #0b1220; }
+    .custom-stepper { display: grid; grid-template-columns: 42px minmax(0, 1fr) 42px; gap: 8px; align-items: center; }
+    .custom-stepper button { min-height: 40px; border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 6px; font-size: 18px; font-weight: 900; transition: background .16s ease, border-color .16s ease, transform .16s ease; }
+    .custom-stepper button:hover { background: #eef4ff; border-color: #9db7e8; transform: translateY(-1px); }
+    .custom-stepper button:active { transform: translateY(0); }
+    .custom-stepper input { text-align: center; font-weight: 900; }
+    .custom-bundle-note { margin: 9px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
     .plan-badge { align-self: flex-start; display: inline-flex; border-radius: 999px; padding: 6px 10px; background: #dbeafe; color: var(--blue); font-size: 12px; font-weight: 900; margin-bottom: 12px; }
     .membership-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 34px; }
     .membership-stat { text-align: center; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 20px; }
@@ -1788,7 +1849,7 @@ function landingHtml() {
     <div class="shell hero">
       <div class="hero-main">
         <p class="eyebrow">Instant vehicle history reports</p>
-        <h1>Cheaper Carfax Report for <span>$5</span></h1>
+        <h1>Cheaper Carfax Report for <span>$5.50</span></h1>
         <p class="lead">Get the same vehicle history details buyers expect, delivered through a clean customer portal with saved report history and fast access.</p>
         <div class="customer-proof"><span class="avatar-stack"><img src="/assets/review-junior.jpg" alt="Customer" /><img src="/assets/review-christian.jpg" alt="Customer" /><img src="/assets/review-alejandro.jpg" alt="Customer" /></span><strong>4,371+</strong><span>customers served</span></div>
         <div class="trust-row"><span>Instant delivery</span><span>Official report access</span><span>SSL secured</span></div>
@@ -1803,7 +1864,7 @@ function landingHtml() {
           <div id="heroVinResult" class="vin-result ok"></div>
         </div>
         <div class="hero-actions">
-          <a class="button" href="${singleCheckout}">Get $5 Report</a>
+          <a class="button" href="${singleCheckout}">Get $5.50 Report</a>
           <a class="button secondary" href="#pricing">View Bundles</a>
         </div>
         <div class="checkout-strip"><span>SSL secured</span><strong>stripe</strong><span>256-bit encrypted checkout</span></div>
@@ -1874,24 +1935,34 @@ function landingHtml() {
       <div class="pricing">
         <article class="price-card featured">
           <h3>Single Report</h3>
-          <div class="price">$5 <small>each</small></div>
+          <div class="price">$5.50 <small>each</small></div>
           <p>Best for checking one vehicle before you buy.</p>
           <ul><li>One report link</li><li>VIN or plate lookup</li><li>Fast delivery</li></ul>
           <a class="button" href="${singleCheckout}">Get Report</a>
+          <div class="custom-bundle-box">
+            <div class="custom-bundle-head"><b>Custom bundle</b><span id="customPrice">$11.00</span></div>
+            <div class="custom-stepper">
+              <button id="customMinus" type="button" aria-label="Remove one report">-</button>
+              <input id="customQty" type="number" min="2" max="100" value="2" aria-label="Custom report quantity" />
+              <button id="customPlus" type="button" aria-label="Add one report">+</button>
+            </div>
+            <p class="custom-bundle-note">Create one reusable portal link for future checks. Add it to your home screen and reopen saved reports anytime.</p>
+            <a class="button secondary" id="customCheckout" href="${customCheckout}?qty=2">Buy Custom Bundle</a>
+          </div>
         </article>
         <article class="price-card">
-          <h3>12 Report Bundle</h3>
-          <div class="price">$24 <small>/ 12 reports</small></div>
+          <h3>11 Report Bundle</h3>
+          <div class="price">$50 <small>/ 11 reports</small></div>
           <p>For shoppers comparing several vehicles.</p>
-          <ul><li>One customer portal link</li><li>Saved report history</li><li>Only $2 per report</li></ul>
-          <a class="button secondary" href="${bundleCheckout}">Buy 12 Pack</a>
+          <ul><li>One customer portal link</li><li>Saved report history</li><li>About $4.55 per report</li></ul>
+          <a class="button secondary" href="${bundleCheckout}">Buy 11 Pack</a>
         </article>
         <article class="price-card">
-          <h3>32 Report Bundle</h3>
-          <div class="price">$54 <small>/ 32 reports</small></div>
+          <h3>33 Report Bundle</h3>
+          <div class="price">$80 <small>/ 33 reports</small></div>
           <p>Best value for active buyers and small dealers.</p>
-          <ul><li>32 report credits</li><li>Customer account portal</li><li>Reopen previous reports</li></ul>
-          <a class="button secondary" href="${valueCheckout}">Buy 32 Pack</a>
+          <ul><li>33 report credits</li><li>Customer account portal</li><li>Reopen previous reports</li></ul>
+          <a class="button secondary" href="${valueCheckout}">Buy 33 Pack</a>
         </article>
       </div>
     </section>
@@ -1900,7 +1971,7 @@ function landingHtml() {
       <div class="membership-stats">
         <div class="membership-stat"><b>500+</b><span>active buyers and dealers</span></div>
         <div class="membership-stat"><b>1M+</b><span>reports requested through partner sources</span></div>
-        <div class="membership-stat"><b>$1.00</b><span>lowest per-report monthly rate</span></div>
+        <div class="membership-stat"><b>$1.98</b><span>lowest per-report monthly rate</span></div>
       </div>
       <div class="section-head">
         <h2>Choose Your Monthly Plan</h2>
@@ -1909,25 +1980,25 @@ function landingHtml() {
       <div class="membership-plans">
         <article class="price-card">
           <h3>Starter Plan</h3>
-          <div class="price">$30 <small>/ month</small></div>
-          <p>30 reports per month for light shoppers and small inventory checks.</p>
-          <ul><li>30 reports per month</li><li>Dashboard portal</li><li>Email support</li><li>Cancel anytime</li></ul>
+          <div class="price">$40 <small>/ month</small></div>
+          <p>10 reports for the first month, delivered in a saved customer portal.</p>
+          <ul><li>10 reports first month</li><li>Dashboard portal</li><li>Email support</li><li>Cancel anytime</li></ul>
           <a class="button secondary" href="${starterCheckout}">Get Started</a>
         </article>
         <article class="price-card popular">
           <span class="plan-badge">Most Popular</span>
-          <h3>Pro Plan</h3>
-          <div class="price">$59 <small>/ month</small></div>
-          <p>75 reports per month for auction checks and active dealership work.</p>
-          <ul><li>75 reports per month</li><li>Dashboard portal</li><li>Priority support</li><li>Cancel anytime</li></ul>
+          <h3>Growth Plan</h3>
+          <div class="price">$69 <small>/ month</small></div>
+          <p>22 reports for the first month for active shopping and dealer checks.</p>
+          <ul><li>22 reports first month</li><li>Dashboard portal</li><li>Priority support</li><li>Cancel anytime</li></ul>
           <a class="button" href="${proCheckout}">Get Started</a>
         </article>
         <article class="price-card">
           <span class="plan-badge">Best Value</span>
-          <h3>Premium Plan</h3>
+          <h3>Volume Plan</h3>
           <div class="price">$99 <small>/ month</small></div>
-          <p>150 reports per month for higher-volume dealer and buyer workflows.</p>
-          <ul><li>150 reports per month</li><li>Dashboard portal</li><li>Priority support</li><li>Cancel anytime</li></ul>
+          <p>50 reports for the first month for higher-volume buyer workflows.</p>
+          <ul><li>50 reports first month</li><li>Dashboard portal</li><li>Priority support</li><li>Cancel anytime</li></ul>
           <a class="button secondary" href="${premiumCheckout}">Get Started</a>
         </article>
       </div>
@@ -1977,11 +2048,11 @@ function landingHtml() {
       </div>
       <div class="reviews">
         <div class="review"><div class="review-head"><div class="letter-avatar">RD</div><div><span class="review-name">Reuben David</span><span class="review-meta">United States</span></div></div><div class="stars"><i></i><i></i><i></i><i></i><i></i></div><p>Received the report in a timely manner. Had a question and they were quick to respond. Cheaper than carfax.com and same info!</p></div>
-        <div class="review"><div class="review-head"><div class="letter-avatar">M</div><div><span class="review-name">MarketingCo</span><span class="review-meta">Mexico</span></div></div><div class="stars"><i></i><i></i><i></i><i></i><i></i></div><p>Love this thing! Way better than paying $600 for a Carfax. I'm a dealer and this is insanely helpful.</p></div>
+        <div class="review"><div class="review-head"><div class="letter-avatar">MC</div><div><span class="review-name">Marco C.</span><span class="review-meta">TX</span></div></div><div class="stars"><i></i><i></i><i></i><i></i><i></i></div><p>Way better than paying full price every time. The portal keeps my reports organized and easy to reopen.</p></div>
         <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-junior.jpg" alt="dennis urban" /><div><span class="review-name">dennis urban</span><span class="review-meta">United States</span></div></div><div class="stars"><i></i><i></i><i></i><i></i><i></i></div><p>Took dealership plan even though I was skeptical. Definitely worth it. Can't beat the price. The owner is a nice guy as well.</p></div>
         <div class="review"><div class="review-head"><div class="letter-avatar">AM</div><div><span class="review-name">Anas mouss</span><span class="review-meta">Morocco</span></div></div><div class="stars"><i></i><i></i><i></i><i></i><i></i></div><p>Running reports on many vehicles was never viable because of the cost. The first car I checked had six owners, three accidents, and an odometer rollback. Dodged a bullet.</p></div>
         <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-alejandro.jpg" alt="ItsZelt" /><div><span class="review-name">ItsZelt</span><span class="review-meta">United States</span></div></div><div class="stars"><i></i><i></i><i></i><i></i><i></i></div><p>Got the report in like 30 seconds. Same info as the $40 one I paid for last year. Works fine.</p></div>
-        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-christian.jpg" alt="Customer" /><div><span class="review-name">Verified buyer</span><span class="review-meta">United States</span></div></div><div class="stars"><i></i><i></i><i></i><i></i><i></i></div><p>It was fast and I got what I needed. I had a small bump in the road but customer service handled it fast and were very polite.</p></div>
+        <div class="review"><div class="review-head"><img class="review-avatar" src="/assets/review-christian.jpg" alt="Customer" /><div><span class="review-name">Verified buyer</span><span class="review-meta">CA</span></div></div><div class="stars"><i></i><i></i><i></i><i></i><i></i></div><p>Fast checkout, report opened correctly, and support helped me quickly when I had a question.</p></div>
       </div>
     </section>
 
@@ -1991,12 +2062,12 @@ function landingHtml() {
         <p>Quick answers before you start checking vehicles.</p>
       </div>
       <div class="faq">
-        <div class="faq-item"><b>How does monthly access work?</b><p>Dealer Monthly is active for the month and reports are refilled in batches as your balance gets low.</p></div>
+        <div class="faq-item"><b>How does monthly access work?</b><p>Your first-month report credits are delivered to a saved customer portal after checkout. Future service is handled with support.</p></div>
         <div class="faq-item"><b>Why batch refills?</b><p>Batch refills keep the portal stable, prevent accidental overuse, and make sure every report link is tracked properly.</p></div>
         <div class="faq-item"><b>Can I reopen old reports?</b><p>Yes. Previous reports stay saved in your customer portal with VIN or plate history and vehicle notes when available.</p></div>
         <div class="faq-item"><b>Does it work on mobile?</b><p>Yes. The customer portal is designed for phones and desktop browsers.</p></div>
         <div class="faq-item"><b>Can I buy just one report?</b><p>Yes. Single reports are available for one-car checks.</p></div>
-        <div class="faq-item"><b>What happens if I use all my reports?</b><p>Monthly customers can request a refill during the active month. Heavy commercial usage may require a custom plan.</p></div>
+        <div class="faq-item"><b>What happens if I use all my reports?</b><p>You can buy another bundle or contact support for help adding more credits to the same portal.</p></div>
       </div>
     </section>
 
@@ -2009,7 +2080,7 @@ function landingHtml() {
         <div class="compare-row"><span>Provider</span><span>Price</span><span>Data Source</span><span>Delivery</span><span>Rating</span><span>Action</span></div>
         <div class="compare-row best">
           <span class="compare-provider">Cheaper Carfax Report <em class="best-badge">BEST</em></span>
-          <span class="compare-price"><b>$5</b><small>per report</small></span>
+          <span class="compare-price"><b>$5.50</b><small>per report</small></span>
           <span>Official report access</span><span>Instant</span><span>Best value</span><span><a class="button compare-action" href="${singleCheckout}">Get Report</a></span>
         </div>
         <div class="compare-row"><span class="compare-provider">Carfax.com</span><span class="compare-price"><b>$39.99</b><small>per report</small></span><span>Official Carfax</span><span>Instant</span><span>N/A</span><span class="compare-action">Compare</span></div>
@@ -2035,7 +2106,7 @@ function landingHtml() {
     </section>
 
     <section class="shell">
-      <div class="fine-print">Monthly plans include a fixed number of report credits for the active month. Credits may be delivered in batches so every report opens correctly and the service remains stable. Heavy commercial usage may require a custom plan.</div>
+      <div class="fine-print">Monthly plans include the first-month report credits shown above. Your reports stay organized in one portal so previous checks are easy to reopen.</div>
     </section>
 
     <section id="refund-policy" class="shell">
@@ -2045,7 +2116,7 @@ function landingHtml() {
       </div>
       <div class="policy-grid">
         <div class="policy-card"><b>Before delivery</b><p>If your order has not been fulfilled yet, contact us as soon as possible and we can cancel or refund the order.</p></div>
-        <div class="policy-card"><b>After report access</b><p>Because vehicle history reports are digital items, completed and opened reports are normally non-refundable once access has been delivered.</p></div>
+        <div class="policy-card"><b>After report access</b><p>If a delivered report link does not open correctly, contact support and we will help fix the order.</p></div>
         <div class="policy-card"><b>Issue with an order</b><p>If a report link does not open or the wrong product is delivered, email us and we will replace the report credit or help resolve the issue.</p></div>
       </div>
     </section>
@@ -2124,6 +2195,30 @@ function landingHtml() {
     document.getElementById('vinTab').addEventListener('click', () => setHeroSearchMode('vin'));
     document.getElementById('plateTab').addEventListener('click', () => setHeroSearchMode('plate'));
     setHeroSearchMode('vin');
+
+    const customQtyInput = document.getElementById('customQty');
+    const customPrice = document.getElementById('customPrice');
+    const customCheckoutLink = document.getElementById('customCheckout');
+    function clampCustomQty(value) {
+      return Math.max(2, Math.min(100, Number.parseInt(value, 10) || 2));
+    }
+    function updateCustomCheckout() {
+      const quantity = clampCustomQty(customQtyInput.value);
+      customQtyInput.value = quantity;
+      customPrice.textContent = '$' + (quantity * 5.5).toFixed(2);
+      customCheckoutLink.href = '${customCheckout}?qty=' + quantity;
+      customCheckoutLink.textContent = 'Buy ' + quantity + ' Report Bundle';
+    }
+    document.getElementById('customMinus').addEventListener('click', () => {
+      customQtyInput.value = clampCustomQty(customQtyInput.value) - 1;
+      updateCustomCheckout();
+    });
+    document.getElementById('customPlus').addEventListener('click', () => {
+      customQtyInput.value = clampCustomQty(customQtyInput.value) + 1;
+      updateCustomCheckout();
+    });
+    customQtyInput.addEventListener('input', updateCustomCheckout);
+    updateCustomCheckout();
 
     const toastStates = ['California', 'Texas', 'Florida', 'North Carolina', 'Arizona', 'Georgia', 'Nevada', 'New York'];
     const toastVehicles = ['2022 Chevrolet Silverado', '2021 Toyota Camry', '2019 Honda Accord', '2020 Ford F-150', '2023 Tesla Model 3', '2018 BMW 3 Series', '2021 Nissan Rogue'];
@@ -2336,6 +2431,15 @@ function adminHtml() {
       </section>
 
       <section class="box">
+        <h2>Release Bundle Back To Inventory</h2>
+        <p class="muted">Use this only when a bundle was created by mistake and has not been sent to a customer. Unused report links return to available stock.</p>
+        <label>Bundle token or customer link</label>
+        <input id="releaseToken" placeholder="Example: a19e7bb128 or https://.../r/a19e7bb128" />
+        <button id="releaseBundle" class="secondary" type="button">Release unused bundle</button>
+        <p class="result" id="releaseResult"></p>
+      </section>
+
+      <section class="box">
         <h2>Create Bundle / Add Credits</h2>
         <label>Customer name</label>
         <input id="name" value="Customer" />
@@ -2465,6 +2569,25 @@ function adminHtml() {
         await loadOrders();
       } catch (error) {
         document.getElementById('result').textContent = error.message;
+      }
+    });
+    document.getElementById('releaseBundle').addEventListener('click', async () => {
+      const raw = document.getElementById('releaseToken').value.trim();
+      const match = raw.match(/\/r\/([a-zA-Z0-9_-]+)/) || raw.match(/^([a-zA-Z0-9_-]{4,64})$/);
+      const token = match ? match[1] : '';
+      if (!token) {
+        document.getElementById('releaseResult').textContent = 'Enter a valid bundle token or customer link.';
+        return;
+      }
+      if (!confirm('Release unused reports from bundle ' + token + ' back to inventory? This will disable that customer bundle link.')) return;
+      try {
+        const data = await api('/api/bundle/' + token + '/release', { method: 'POST' });
+        document.getElementById('releaseResult').textContent = 'Released ' + data.released + ' unused reports. Available stock: ' + data.inventory.available + '.';
+        document.getElementById('releaseToken').value = '';
+        await loadInventory();
+        await loadOrders();
+      } catch (error) {
+        document.getElementById('releaseResult').textContent = error.message;
       }
     });
     document.getElementById('refresh').addEventListener('click', async () => {
@@ -2623,6 +2746,16 @@ async function handleApi(req, res, pathname) {
     const bundle = data.bundles[bundleMatch[1]];
     if (!bundle) return notFound(res);
     return sendJson(res, 200, publicBundle(data, bundle));
+  }
+
+  const releaseMatch = pathname.match(/^\/api\/bundle\/([^/]+)\/release$/);
+  if (req.method === 'POST' && releaseMatch) {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    const result = releaseUnusedBundleInventory(data, releaseMatch[1]);
+    if (!result) return notFound(res);
+    writeData(data);
+    return sendJson(res, 200, { ...result, inventory: inventorySummary(data) });
   }
 
   const accountMatch = pathname.match(/^\/api\/bundle\/([^/]+)\/account$/);
@@ -2824,7 +2957,7 @@ const server = http.createServer(async (req, res) => {
       return sendHtml(res, seoPageHtml(pathname));
     }
 
-    const checkoutMatch = pathname.match(/^\/checkout\/(single|bundle|value|monthly|starter|pro|premium)$/);
+    const checkoutMatch = pathname.match(/^\/checkout\/(single|bundle|value|monthly|starter|pro|premium|custom)$/);
     if (req.method === 'GET' && checkoutMatch) {
       const plan = checkoutMatch[1];
       if (STRIPE_SECRET_KEY && stripePriceForPlan(plan)) {
@@ -2833,6 +2966,7 @@ const server = http.createServer(async (req, res) => {
         const order = {
           id: orderId,
           plan,
+          quantity: plan === 'custom' ? customQuantity(url.searchParams.get('qty')) : reportCountForPlan(plan),
           status: 'pending',
           createdAt: new Date().toISOString(),
           fulfilledAt: '',
