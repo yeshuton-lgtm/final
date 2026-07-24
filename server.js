@@ -2581,7 +2581,7 @@ function adminHtml() {
     });
     document.getElementById('releaseBundle').addEventListener('click', async () => {
       const raw = document.getElementById('releaseToken').value.trim();
-      const match = raw.match(/\/r\/([a-zA-Z0-9_-]+)/) || raw.match(/^([a-zA-Z0-9_-]{4,64})$/);
+      const match = raw.match(new RegExp('/r/([a-zA-Z0-9_-]+)')) || raw.match(/^([a-zA-Z0-9_-]{4,64})$/);
       const token = match ? match[1] : '';
       if (!token) {
         document.getElementById('releaseResult').textContent = 'Enter a valid bundle token or customer link.';
