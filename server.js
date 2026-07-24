@@ -2400,9 +2400,9 @@ function adminHtml() {
     <p class="muted">Add report links to inventory, then generate customer bundles by quantity. Using the same customer phone/account ID combines balances and history.</p>
 
     <section class="stats">
-      <div class="stat"><strong id="stockAvailable">0</strong><span class="muted">Available stock</span></div>
-      <div class="stat"><strong id="stockAssigned">0</strong><span class="muted">Assigned to bundles</span></div>
-      <div class="stat"><strong id="stockTotal">0</strong><span class="muted">Total links added</span></div>
+      <div class="stat"><strong id="stockAvailable">...</strong><span class="muted">Available stock</span></div>
+      <div class="stat"><strong id="stockAssigned">...</strong><span class="muted">Assigned to bundles</span></div>
+      <div class="stat"><strong id="stockTotal">...</strong><span class="muted">Total links added</span></div>
     </section>
 
     <div class="grid">
@@ -2476,10 +2476,17 @@ function adminHtml() {
       }
     }
     async function loadInventory() {
-      const data = await api('/api/inventory');
-      document.getElementById('stockAvailable').textContent = data.available;
-      document.getElementById('stockAssigned').textContent = data.assigned;
-      document.getElementById('stockTotal').textContent = data.total;
+      try {
+        const data = await api('/api/inventory');
+        document.getElementById('stockAvailable').textContent = data.available;
+        document.getElementById('stockAssigned').textContent = data.assigned;
+        document.getElementById('stockTotal').textContent = data.total;
+      } catch (error) {
+        document.getElementById('stockAvailable').textContent = 'ERR';
+        document.getElementById('stockAssigned').textContent = 'ERR';
+        document.getElementById('stockTotal').textContent = 'ERR';
+        document.getElementById('stockResult').textContent = 'Inventory failed to load: ' + error.message + '. Check the password in the admin URL.';
+      }
     }
     function formatOrderDate(value) {
       if (!value) return 'No time saved';
