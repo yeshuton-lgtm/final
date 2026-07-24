@@ -761,6 +761,7 @@ function publicOrder(order) {
 
 function recentOrders(data, limit = 20) {
   return Object.values(data.orders || {})
+    .filter((order) => order.status !== 'pending' || Boolean(order.paidAt || order.fulfilledAt))
     .sort((a, b) => String(b.paidAt || b.fulfilledAt || b.createdAt).localeCompare(String(a.paidAt || a.fulfilledAt || a.createdAt)))
     .slice(0, limit)
     .map(publicOrder);
