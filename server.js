@@ -26,7 +26,7 @@ const STRIPE_PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID || '';
 const STRIPE_PREMIUM_PRICE_ID = process.env.STRIPE_PREMIUM_PRICE_ID || '';
 
 const PLAN_DEFINITIONS = {
-  single: { label: 'Single Report', quantity: 1, amount: 550, mode: 'payment' },
+  single: { label: 'Single Report', quantity: 1, amount: 500, mode: 'payment' },
   bundle: { label: '11 Report Bundle', quantity: 11, amount: 5000, mode: 'payment' },
   value: { label: '33 Report Bundle', quantity: 33, amount: 8000, mode: 'payment' },
   monthly: { label: 'Starter Monthly', quantity: 10, amount: 4000, mode: 'subscription' },
@@ -41,7 +41,7 @@ function customQuantity(value) {
 }
 
 function customBundleAmount(quantity) {
-  return customQuantity(quantity) * 550;
+  return customQuantity(quantity) * 500;
 }
 
 const starterReports = [
@@ -515,18 +515,18 @@ ${urls.map(([loc, priority]) => `  <url>
 
 const SEO_PAGES = {
   '/cheap-carfax-report': {
-    title: 'Cheap Carfax Report for $5.50 | Cheaper Carfax Report',
+    title: 'Cheap Carfax Report for $5 | Cheaper Carfax Report',
     description: 'Get a cheap vehicle history report with fast checkout, saved report access, and single report or bundle pricing for shoppers and small dealers.',
     eyebrow: 'Cheap vehicle history reports',
     h1: 'Cheap Carfax Report Without Retail Pricing',
     lead: 'Cheaper Carfax Report helps buyers and small dealers check vehicles before they buy. Start with a single report, choose a report bundle, or use monthly credits for repeat checking.',
-    bullets: ['Single reports from $5.50', 'Bundle pricing for repeat vehicle checks', 'Saved customer portal for reopening reports'],
+    bullets: ['Single reports from $5', 'Bundle pricing for repeat vehicle checks', 'Saved customer portal for reopening reports'],
     sections: [
       ['Why shoppers use us', 'Vehicle history reports can get expensive when you are comparing more than one car. Our report portal keeps pricing simple and gives you one place to reopen previous reports.'],
       ['What you receive', 'After checkout, your report or customer portal link is created for your order. The portal can save VIN history, vehicle notes, and reopen links so your checked cars stay organized.'],
       ['Best for', 'Used car shoppers, auction buyers, small dealerships, and anyone comparing multiple vehicles before making a purchase.']
     ],
-    cta: 'Get A $5.50 Report'
+    cta: 'Get A $5 Report'
   },
   '/carfax-alternative': {
     title: 'Carfax Alternative With Better Pricing | Cheaper Carfax Report',
@@ -675,7 +675,7 @@ function seoPageHtml(pathname) {
         <h1>${htmlAttr(page.h1)}</h1>
         <p class="lead">${htmlAttr(page.lead)}</p>
       </div>
-      <div class="hero-card"><b>$5.50</b><span>single report option with bundles and monthly credits available.</span></div>
+      <div class="hero-card"><b>$5</b><span>single report option with bundles and monthly credits available.</span></div>
     </div>
     <div class="shell bullets">
       ${page.bullets.map((item) => `<div class="bullet">${htmlAttr(item)}</div>`).join('')}
@@ -1598,10 +1598,10 @@ function landingHtml() {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cheaper Carfax Report | Dealer Report Portal</title>
-  <meta name="description" content="Cheaper Carfax Report offers $5.50 vehicle history report access, bundles, monthly report credits, license plate lookup, and a saved customer report portal." />
+  <meta name="description" content="Cheaper Carfax Report offers $5 vehicle history report access, bundles, monthly report credits, license plate lookup, and a saved customer report portal." />
   <link rel="canonical" href="https://cheapercarfaxreport.com/" />
   <meta property="og:title" content="Cheaper Carfax Report" />
-  <meta property="og:description" content="Get a vehicle history report from $5.50 with bundles, monthly credits, and saved report history." />
+  <meta property="og:description" content="Get a vehicle history report from $5 with bundles, monthly credits, and saved report history." />
   <meta property="og:url" content="https://cheapercarfaxreport.com/" />
   <meta property="og:type" content="website" />
   <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -1850,7 +1850,7 @@ function landingHtml() {
     <div class="shell hero">
       <div class="hero-main">
         <p class="eyebrow">Instant vehicle history reports</p>
-        <h1>Cheaper Carfax Report for <span>$5.50</span></h1>
+        <h1>Cheaper Carfax Report for <span>$5</span></h1>
         <p class="lead">Get the same vehicle history details buyers expect, delivered through a clean customer portal with saved report history and fast access.</p>
         <div class="customer-proof"><span class="avatar-stack"><img src="/assets/review-junior.jpg" alt="Customer" /><img src="/assets/review-christian.jpg" alt="Customer" /><img src="/assets/review-alejandro.jpg" alt="Customer" /></span><strong>4,371+</strong><span>customers served</span></div>
         <div class="trust-row"><span>Instant delivery</span><span>Official report access</span><span>SSL secured</span></div>
@@ -1865,7 +1865,7 @@ function landingHtml() {
           <div id="heroVinResult" class="vin-result ok"></div>
         </div>
         <div class="hero-actions">
-          <a class="button" href="${singleCheckout}">Get $5.50 Report</a>
+          <a class="button" href="${singleCheckout}">Get $5 Report</a>
           <a class="button secondary" href="#pricing">View Bundles</a>
         </div>
         <div class="checkout-strip"><span>SSL secured</span><strong>stripe</strong><span>256-bit encrypted checkout</span></div>
@@ -1936,12 +1936,12 @@ function landingHtml() {
       <div class="pricing">
         <article class="price-card featured">
           <h3>Single Report</h3>
-          <div class="price">$5.50 <small>each</small></div>
+          <div class="price">$5 <small>each</small></div>
           <p>Best for checking one vehicle before you buy.</p>
           <ul><li>One report link</li><li>VIN or plate lookup</li><li>Fast delivery</li></ul>
           <a class="button" href="${singleCheckout}">Get Report</a>
           <div class="custom-bundle-box">
-            <div class="custom-bundle-head"><b>Custom bundle</b><span id="customPrice">$11.00</span></div>
+            <div class="custom-bundle-head"><b>Custom bundle</b><span id="customPrice">$10.00</span></div>
             <div class="custom-stepper">
               <button id="customMinus" type="button" aria-label="Remove one report">-</button>
               <input id="customQty" type="number" min="2" max="100" value="2" aria-label="Custom report quantity" />
@@ -2081,7 +2081,7 @@ function landingHtml() {
         <div class="compare-row"><span>Provider</span><span>Price</span><span>Data Source</span><span>Delivery</span><span>Rating</span><span>Action</span></div>
         <div class="compare-row best">
           <span class="compare-provider">Cheaper Carfax Report <em class="best-badge">BEST</em></span>
-          <span class="compare-price"><b>$5.50</b><small>per report</small></span>
+          <span class="compare-price"><b>$5</b><small>per report</small></span>
           <span>Official report access</span><span>Instant</span><span>Best value</span><span><a class="button compare-action" href="${singleCheckout}">Get Report</a></span>
         </div>
         <div class="compare-row"><span class="compare-provider">Carfax.com</span><span class="compare-price"><b>$39.99</b><small>per report</small></span><span>Official Carfax</span><span>Instant</span><span>N/A</span><span class="compare-action">Compare</span></div>
@@ -2206,7 +2206,7 @@ function landingHtml() {
     function updateCustomCheckout() {
       const quantity = clampCustomQty(customQtyInput.value);
       customQtyInput.value = quantity;
-      customPrice.textContent = '$' + (quantity * 5.5).toFixed(2);
+      customPrice.textContent = '$' + (quantity * 5).toFixed(2);
       customCheckoutLink.href = '${customCheckout}?qty=' + quantity;
       customCheckoutLink.textContent = 'Buy ' + quantity + ' Report Bundle';
     }
