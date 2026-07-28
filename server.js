@@ -529,18 +529,18 @@ const SEO_PAGES = {
     cta: 'Get A $5 Report'
   },
   '/carfax-alternative': {
-    title: 'Carfax Alternative With Better Pricing | Cheaper Carfax Report',
-    description: 'Compare vehicle history report options and choose a lower-cost Carfax alternative with fast delivery, bundles, and saved report history.',
-    eyebrow: 'Carfax alternative',
-    h1: 'A Lower-Cost Carfax Alternative For Repeat Checks',
-    lead: 'If you need to check more than one vehicle, retail report pricing adds up quickly. Cheaper Carfax Report is designed for buyers who want fast report access and better organization.',
-    bullets: ['Lower entry price than many retail report sites', 'Single reports, bundles, and monthly report credits', 'Customer portal with saved history'],
+    title: 'Carfax Alternative From $5 — Check Before You Buy',
+    description: 'Looking for a lower-cost Carfax alternative? Check a vehicle history from $5, get fast report access, and save previous VIN checks in one portal.',
+    eyebrow: 'Check before you buy',
+    h1: 'Don’t Buy A Used Car Blind',
+    lead: 'Check accident, ownership, mileage, and service history before you hand over your money. Start with one $5 report or save with a bundle when comparing several cars.',
+    bullets: ['Vehicle history reports from $5', 'Single reports and bundles for repeat checks', 'Saved portal for reopening previous VIN reports'],
     sections: [
-      ['Compare before you buy', 'Use the preview and pricing options to choose the report access that fits your workflow. Single buyers can start small, while dealers can use bundles or monthly credits.'],
-      ['Saved report history', 'Your portal helps keep previous reports organized by VIN or plate, vehicle note, opened date, and reopen action.'],
-      ['Transparent support', 'Contact support by email if a report link does not open or an order needs attention.']
+      ['The Listing Cannot Tell You Everything', 'Photos and a test drive may not reveal previous accidents, title issues, mileage records, or ownership history. Check the vehicle history before deciding what the car is worth.'],
+      ['Compare Cars Without Losing Track', 'Your portal organizes previous checks by VIN or plate, vehicle note, opened date, and reopen action so you can compare several vehicles in one place.'],
+      ['Clear Pricing And Support', 'Start with a single report, choose a bundle for repeat checks, and contact support by email if a report link does not open or an order needs attention.']
     ],
-    cta: 'Compare Pricing'
+    cta: 'Check My VIN For $5'
   },
   '/license-plate-lookup': {
     title: 'License Plate Lookup For Vehicle Reports | Cheaper Carfax Report',
@@ -1597,11 +1597,11 @@ function landingHtml() {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Cheaper Carfax Report | Dealer Report Portal</title>
-  <meta name="description" content="Cheaper Carfax Report offers $5 vehicle history report access, bundles, monthly report credits, license plate lookup, and a saved customer report portal." />
+  <title>Vehicle History Report From $5 | Instant VIN Check</title>
+  <meta name="description" content="Check a used vehicle before you buy. Get vehicle history report access from $5, compare VINs, and save previous checks in one customer portal." />
   <link rel="canonical" href="https://cheapercarfaxreport.com/" />
-  <meta property="og:title" content="Cheaper Carfax Report" />
-  <meta property="og:description" content="Get a vehicle history report from $5 with bundles, monthly credits, and saved report history." />
+  <meta property="og:title" content="Don’t Buy A Used Car Blind | Reports From $5" />
+  <meta property="og:description" content="Check accident, ownership, mileage, and service history before you pay. Start with one $5 vehicle history report." />
   <meta property="og:url" content="https://cheapercarfaxreport.com/" />
   <meta property="og:type" content="website" />
   <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -1849,23 +1849,23 @@ function landingHtml() {
   <main>
     <div class="shell hero">
       <div class="hero-main">
-        <p class="eyebrow">Instant vehicle history reports</p>
-        <h1>Cheaper Carfax Report for <span>$5</span></h1>
-        <p class="lead">Get the same vehicle history details buyers expect, delivered through a clean customer portal with saved report history and fast access.</p>
-        <div class="customer-proof"><span class="avatar-stack"><img src="/assets/review-junior.jpg" alt="Customer" /><img src="/assets/review-christian.jpg" alt="Customer" /><img src="/assets/review-alejandro.jpg" alt="Customer" /></span><strong>4,371+</strong><span>customers served</span></div>
-        <div class="trust-row"><span>Instant delivery</span><span>Official report access</span><span>SSL secured</span></div>
+        <p class="eyebrow">Check before you buy</p>
+        <h1>Don’t Buy A Used Car <span>Blind</span></h1>
+        <p class="lead">Check accident, ownership, mileage, and service history before you pay. Vehicle history reports start at $5, with saved access for comparing more than one car.</p>
+        <div class="customer-proof"><span class="avatar-stack"><img src="/assets/review-junior.jpg" alt="Customer" /><img src="/assets/review-christian.jpg" alt="Customer" /><img src="/assets/review-alejandro.jpg" alt="Customer" /></span><strong>Buyer feedback</strong><span>from real report customers below</span></div>
+        <div class="trust-row"><span>Fast report access</span><span>Saved report history</span><span>Secure Stripe checkout</span></div>
         <div class="vin-search hero-search">
           <div class="search-tabs"><button class="active" id="vinTab" type="button">Enter VIN</button><button id="plateTab" type="button">License Plate</button></div>
           <label id="heroSearchLabel" for="heroVin">Preview vehicle information</label>
           <div class="vin-search-row">
             <input id="heroVin" value="5YJ3E1EA7PF472486" maxlength="17" autocomplete="off" placeholder="Enter 17-character VIN" />
             <select id="heroState" aria-label="State"><option value="CA">CA</option><option value="TX">TX</option><option value="FL">FL</option><option value="NY">NY</option><option value="NC">NC</option><option value="GA">GA</option><option value="AZ">AZ</option><option value="NV">NV</option><option value="WA">WA</option></select>
-            <button class="button" id="heroVinButton" type="button">Get Report</button>
+            <button class="button" id="heroVinButton" type="button">Check My VIN</button>
           </div>
           <div id="heroVinResult" class="vin-result ok"></div>
         </div>
         <div class="hero-actions">
-          <a class="button" href="${singleCheckout}">Get $5 Report</a>
+          <a class="button" href="${singleCheckout}">Check My VIN For $5</a>
           <a class="button secondary" href="#pricing">View Bundles</a>
         </div>
         <div class="checkout-strip"><span>SSL secured</span><strong>stripe</strong><span>256-bit encrypted checkout</span></div>
@@ -1970,9 +1970,9 @@ function landingHtml() {
 
     <section id="membership" class="shell">
       <div class="membership-stats">
-        <div class="membership-stat"><b>500+</b><span>active buyers and dealers</span></div>
-        <div class="membership-stat"><b>1M+</b><span>reports requested through partner sources</span></div>
-        <div class="membership-stat"><b>$1.98</b><span>lowest per-report monthly rate</span></div>
+        <div class="membership-stat"><b>From $5</b><span>start with one vehicle report</span></div>
+        <div class="membership-stat"><b>Saved</b><span>reopen previous report history</span></div>
+        <div class="membership-stat"><b>Stripe</b><span>secure encrypted checkout</span></div>
       </div>
       <div class="section-head">
         <h2>Choose Your Monthly Plan</h2>
