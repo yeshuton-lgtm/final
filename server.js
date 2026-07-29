@@ -515,7 +515,7 @@ ${urls.map(([loc, priority]) => `  <url>
 
 const SEO_PAGES = {
   '/cheap-carfax-report': {
-    title: 'Cheap Carfax Report for $5 | Cheaper Carfax Report',
+    title: '$5 Carfax Report | Cheap Vehicle History Report',
     description: 'Get a cheap vehicle history report with fast checkout, saved report access, and single report or bundle pricing for shoppers and small dealers.',
     eyebrow: 'Cheap vehicle history reports',
     h1: 'Cheap Carfax Report Without Retail Pricing',
@@ -529,7 +529,7 @@ const SEO_PAGES = {
     cta: 'Get A $5 Report'
   },
   '/carfax-alternative': {
-    title: 'Carfax Alternative From $5 — Check Before You Buy',
+    title: '$5 Carfax Alternative | Cheap Vehicle Reports',
     description: 'Looking for a lower-cost Carfax alternative? Check a vehicle history from $5, get fast report access, and save previous VIN checks in one portal.',
     eyebrow: 'Check before you buy',
     h1: 'Don’t Buy A Used Car Blind',
@@ -543,7 +543,7 @@ const SEO_PAGES = {
     cta: 'Check My VIN For $5'
   },
   '/license-plate-lookup': {
-    title: 'License Plate Lookup For Vehicle Reports | Cheaper Carfax Report',
+    title: '$5 Vehicle Report By VIN Or Plate | License Plate Lookup',
     description: 'Use VIN or license plate information to start a vehicle history report order. Check cars faster with report links and saved portal history.',
     eyebrow: 'License plate lookup',
     h1: 'License Plate Lookup For Vehicle Report Orders',
@@ -557,7 +557,7 @@ const SEO_PAGES = {
     cta: 'Start Plate Lookup'
   },
   '/dealer-carfax-reports': {
-    title: 'Dealer Carfax Reports and Monthly Credits | Cheaper Carfax Report',
+    title: '$5 Carfax Reports For Dealers | Bundle Report Credits',
     description: 'Dealer-style vehicle report access with bundles, monthly credits, saved VIN history, and report portal organization for repeat checking.',
     eyebrow: 'Dealer report access',
     h1: 'Dealer-Style Report Access For Repeat Vehicle Checks',
@@ -1597,7 +1597,7 @@ function landingHtml() {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Vehicle History Report From $5 | Instant VIN Check</title>
+  <title>$5 Carfax Report | Instant VIN & Plate Check</title>
   <meta name="description" content="Check a used vehicle before you buy. Get vehicle history report access from $5, compare VINs, and save previous checks in one customer portal." />
   <link rel="canonical" href="https://cheapercarfaxreport.com/" />
   <meta property="og:title" content="Don’t Buy A Used Car Blind | Reports From $5" />
