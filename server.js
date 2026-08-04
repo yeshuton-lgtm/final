@@ -951,11 +951,12 @@ function isVinfaxReportUrl(url) {
   return /^https:\/\/vinfax\.co\/reports\/(?:index|view)\//i.test(String(url || '').trim());
 }
 
-function publicReport(bundle, report) {
+function publicReport(bundle, report, index = Math.max(0, Number(report.id || 1) - 1)) {
   return {
     bundleToken: bundle.token,
     bundleName: bundle.customerName,
     id: report.id,
+    index,
     used: report.used,
     vehicle: report.vehicle,
     searchDisplay: report.searchDisplay,
@@ -968,7 +969,7 @@ function publicReport(bundle, report) {
 
 function accountSummary(data, bundle) {
   const bundles = getAccountBundles(data, bundle);
-  const reports = bundles.flatMap((item) => item.reports.map((report) => ({ bundle: item, report })));
+  const reports = bundles.flatMap((item) => item.reports.map((report, index) => ({ bundle: item, report, index })));
   const used = reports.filter((item) => item.report.used).length;
   return {
     accountKey: bundle.accountKey,
@@ -977,10 +978,11 @@ function accountSummary(data, bundle) {
     total: reports.length,
     used,
     remaining: reports.length - used,
+    reports: reports.map((item) => publicReport(item.bundle, item.report, item.index)),
     history: reports
       .filter((item) => item.report.used)
       .sort((a, b) => String(b.report.openedAt).localeCompare(String(a.report.openedAt)))
-      .map((item) => publicReport(item.bundle, item.report))
+      .map((item) => publicReport(item.bundle, item.report, item.index))
   };
 }
 
@@ -995,7 +997,7 @@ function publicBundle(data, bundle) {
     used,
     remaining: bundle.reports.length - used,
     account: accountSummary(data, bundle),
-    reports: bundle.reports.map((report) => publicReport(bundle, report))
+    reports: bundle.reports.map((report, index) => publicReport(bundle, report, index))
   };
 }
 
@@ -1420,9 +1422,9 @@ function pageHtml(token) {
       }
     }
 
-    async function openReport(index, searchValue = '') {
+    async function openReport(bundleToken, index, searchValue = '') {
       try {
-        const result = await api('/api/bundle/' + TOKEN + '/open/' + index, {
+        const result = await api('/api/bundle/' + bundleToken + '/open/' + index, {
           method: 'POST',
           body: JSON.stringify({ searchKey: searchValue || lastCheckedSearch })
         });
@@ -1443,11 +1445,12 @@ function pageHtml(token) {
       }
     }
 
-    async function openNextReport(searchValue = '') {
+    async function openNextReport(searchValue = '', ignoreCurrentInput = false) {
       try {
+        const nextSearchValue = searchValue || (ignoreCurrentInput ? '' : getSearchValue());
         const result = await api('/api/bundle/' + TOKEN + '/open-next', {
           method: 'POST',
-          body: JSON.stringify({ searchKey: searchValue || getSearchValue() })
+          body: JSON.stringify({ searchKey: nextSearchValue })
         });
         bundle = result.bundle;
         render();
@@ -1478,18 +1481,19 @@ function pageHtml(token) {
       }
     }
 
-    async function updateVehicle(index, value) {
-      await api('/api/bundle/' + TOKEN + '/vehicle/' + index, {
+    async function updateVehicle(bundleToken, index, value) {
+      await api('/api/bundle/' + bundleToken + '/vehicle/' + index, {
         method: 'POST',
         body: JSON.stringify({ vehicle: value })
       });
     }
 
-    async function updateReportSearch(index, value) {
-      bundle = await api('/api/bundle/' + TOKEN + '/search/' + index, {
+    async function updateReportSearch(bundleToken, index, value) {
+      await api('/api/bundle/' + bundleToken + '/search/' + index, {
         method: 'POST',
         body: JSON.stringify({ searchKey: value })
       });
+      bundle = await api('/api/bundle/' + TOKEN);
       render();
       refreshMissingVehicles();
     }
@@ -1534,12 +1538,15 @@ function pageHtml(token) {
     function renderBundleRows() {
       const rows = document.getElementById('reportRows');
       rows.innerHTML = '';
-      bundle.reports.forEach((report, index) => {
+      const visibleReports = bundle.account.accountKey ? bundle.account.reports : bundle.reports;
+      visibleReports.forEach((report) => {
+        const reportBundleToken = report.bundleToken || TOKEN;
+        const reportIndex = Number.isFinite(Number(report.index)) ? Number(report.index) : Math.max(0, Number(report.id || 1) - 1);
         const row = document.createElement('tr');
         const slot = document.createElement('td');
         slot.className = 'slot';
         slot.dataset.label = 'Slot';
-        slot.textContent = '#' + report.id;
+        slot.textContent = (reportBundleToken === TOKEN ? '#' : reportBundleToken.slice(0, 4) + ' #') + report.id;
 
         const status = document.createElement('td');
         status.dataset.label = 'Status';
@@ -1554,7 +1561,7 @@ function pageHtml(token) {
         searchInput.className = 'search-input';
         searchInput.value = report.searchDisplay || '';
         searchInput.placeholder = 'VIN or plate';
-        searchInput.addEventListener('change', (event) => updateReportSearch(index, event.target.value));
+        searchInput.addEventListener('change', (event) => updateReportSearch(reportBundleToken, reportIndex, event.target.value));
         search.appendChild(searchInput);
 
         const vehicle = document.createElement('td');
@@ -1563,7 +1570,7 @@ function pageHtml(token) {
         vehicleInput.className = 'vehicle-input';
         vehicleInput.value = report.vehicle || '';
         vehicleInput.placeholder = '';
-        vehicleInput.addEventListener('change', (event) => updateVehicle(index, event.target.value));
+        vehicleInput.addEventListener('change', (event) => updateVehicle(reportBundleToken, reportIndex, event.target.value));
         vehicle.appendChild(vehicleInput);
         if (report.vinMismatch) {
           const mismatch = document.createElement('div');
@@ -1585,7 +1592,7 @@ function pageHtml(token) {
         button.type = 'button';
         button.className = report.used ? 'secondary' : '';
         button.textContent = report.used ? 'Open Again' : 'Use Report';
-        button.addEventListener('click', () => openReport(index, searchInput.value));
+        button.addEventListener('click', () => openReport(reportBundleToken, reportIndex, searchInput.value));
         wrap.appendChild(button);
         actions.appendChild(wrap);
 
@@ -1640,7 +1647,7 @@ function pageHtml(token) {
 
     document.getElementById('connectAccountButton').addEventListener('click', connectAccount);
     document.getElementById('checkSearchButton').addEventListener('click', checkSearch);
-    document.getElementById('useNextButton').addEventListener('click', () => openNextReport());
+    document.getElementById('useNextButton').addEventListener('click', () => openNextReport('', true));
     loadBundle();
   </script>
 </body>
