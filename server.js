@@ -139,7 +139,7 @@ function migrateData(data) {
       report.vehicle = String(report.vehicle || '');
       report.searchDisplay = String(report.searchDisplay || extractVinFromText(report.vehicle) || '');
       report.searchKey = normalizeSearchKey(report.searchKey || report.searchDisplay || extractVinFromText(report.vehicle) || '');
-      report.used = Boolean(report.used && report.searchKey);
+      report.used = Boolean(report.used || report.openedAt || report.vehicle || report.searchKey);
       report.openedAt = String(report.openedAt || '');
       report.vinMismatch = Boolean(report.vinMismatch);
       report.vinMismatchMessage = String(report.vinMismatchMessage || '');
@@ -413,6 +413,66 @@ async function fillVehicleFromReport(report) {
     console.log(`Vehicle note fetch failed for ${report.url}: ${error.message}`);
     return false;
   }
+}
+
+async function syncReportExternalStatus(report) {
+  if (!report || !isVinfaxReportUrl(report.url)) return false;
+  if (report.used && report.vehicle && report.searchKey) return false;
+  try {
+    const html = await fetchText(report.url);
+    const details = extractReportDetails(html);
+    const note = formatVehicleNote(details);
+    if (!details.vin && !note) return false;
+    if (isKnownVinfaxPlaceholder(note) || details.vin === VINFAX_PLACEHOLDER_VIN) return false;
+
+    let changed = false;
+    if (!report.used) {
+      report.used = true;
+      report.openedAt = report.openedAt || new Date().toISOString();
+      changed = true;
+    }
+    if (details.vin && !report.searchKey) {
+      report.searchDisplay = details.vin;
+      report.searchKey = normalizeSearchKey(details.vin);
+      changed = true;
+    }
+    if (note && !report.vehicle) {
+      report.vehicle = note;
+      changed = true;
+    }
+    return changed;
+  } catch (error) {
+    console.log(`External report status check skipped for ${report.url}: ${error.message}`);
+    return false;
+  }
+}
+
+async function refreshBundleExternalStatus(data, bundle) {
+  let changed = false;
+  for (const report of bundle.reports) {
+    changed = await syncReportExternalStatus(report) || changed;
+  }
+  return changed;
+}
+
+async function refreshAccountExternalStatus(data, bundle) {
+  let changed = false;
+  for (const accountBundle of getAccountBundles(data, bundle)) {
+    changed = await refreshBundleExternalStatus(data, accountBundle) || changed;
+  }
+  return changed;
+}
+
+async function findNextAvailableAccountReport(data, bundle) {
+  let changed = false;
+  let next = findNextAccountReport(data, bundle);
+  while (next) {
+    const synced = await syncReportExternalStatus(next.report);
+    changed = synced || changed;
+    if (!next.report.used) return { ...next, changed };
+    next = findNextAccountReport(data, bundle);
+  }
+  return { next: null, changed };
 }
 
 async function refreshMissingVehicles(data, bundle) {
@@ -881,10 +941,14 @@ function findNextAccountReport(data, bundle) {
     ...accountBundles.filter((item) => item !== bundle)
   ];
   for (const accountBundle of orderedBundles) {
-    const index = accountBundle.reports.findIndex((report) => !report.searchKey);
+    const index = accountBundle.reports.findIndex((report) => !report.used);
     if (index !== -1) return { bundle: accountBundle, report: accountBundle.reports[index], index };
   }
   return null;
+}
+
+function isVinfaxReportUrl(url) {
+  return /^https:\/\/vinfax\.co\/reports\/(?:index|view)\//i.test(String(url || '').trim());
 }
 
 function publicReport(bundle, report) {
@@ -2753,6 +2817,8 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'GET' && bundleMatch) {
     const bundle = data.bundles[bundleMatch[1]];
     if (!bundle) return notFound(res);
+    const changed = await refreshAccountExternalStatus(data, bundle);
+    if (changed) writeData(data);
     return sendJson(res, 200, publicBundle(data, bundle));
   }
 
@@ -2817,34 +2883,33 @@ async function handleApi(req, res, pathname) {
       });
     }
 
-    const next = findNextAccountReport(data, bundle);
-    if (!next) return sendJson(res, 400, { error: 'All reports have already been used.' });
+    const nextResult = await findNextAvailableAccountReport(data, bundle);
+    if (nextResult.changed) writeData(data);
+    if (!nextResult.report) return sendJson(res, 400, { error: 'All reports have already been used.' });
 
-    const report = next.report;
+    const report = nextResult.report;
     if (searchDisplay) {
       report.searchDisplay = searchDisplay.slice(0, 40);
       report.searchKey = searchKey;
       report.used = true;
       if (!report.openedAt) report.openedAt = new Date().toISOString();
     } else {
-      report.searchDisplay = '';
-      report.searchKey = '';
-      report.used = false;
-      report.openedAt = '';
+      report.used = true;
+      if (!report.openedAt) report.openedAt = new Date().toISOString();
     }
     writeData(data);
     if (report.used && !report.vehicle) {
       setTimeout(async () => {
         const latestData = readData();
-        const latestBundle = latestData.bundles[next.bundle.token];
-        const latestReport = latestBundle && latestBundle.reports[next.index];
+        const latestBundle = latestData.bundles[nextResult.bundle.token];
+        const latestReport = latestBundle && latestBundle.reports[nextResult.index];
         if (latestReport && await fillVehicleFromReport(latestReport)) writeData(latestData);
       }, 30000).unref();
     }
     return sendJson(res, 200, {
       duplicate: false,
       url: report.url,
-      selectedBundle: next.bundle.token,
+      selectedBundle: nextResult.bundle.token,
       selectedReportId: report.id,
       bundle: publicBundle(data, bundle)
     });
@@ -2868,16 +2933,17 @@ async function handleApi(req, res, pathname) {
     }
 
     const report = bundle.reports[index];
+    await syncReportExternalStatus(report);
     if (searchDisplay) {
       report.searchDisplay = searchDisplay;
       report.searchKey = searchKey;
       report.used = true;
       if (!report.openedAt) report.openedAt = new Date().toISOString();
+    } else if (!report.used) {
+      report.used = true;
+      if (!report.openedAt) report.openedAt = new Date().toISOString();
     } else {
-      report.searchDisplay = '';
-      report.searchKey = '';
-      report.used = false;
-      report.openedAt = '';
+      report.openedAt = report.openedAt || new Date().toISOString();
     }
     writeData(data);
     if (report.used && !report.vehicle) {
