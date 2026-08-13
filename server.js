@@ -1056,6 +1056,18 @@ function orphanSingleSaleAssignments(data) {
     }));
 }
 
+function availableInventoryItems(data, limit = 500) {
+  return data.inventory
+    .filter((item) => item.status === 'available')
+    .sort((a, b) => String(a.addedAt).localeCompare(String(b.addedAt)))
+    .slice(0, limit)
+    .map((item) => ({
+      id: item.id,
+      url: extractFirstUrl(item.url) || item.url,
+      addedAt: item.addedAt
+    }));
+}
+
 function addInventoryLinks(data, rawLinks) {
   const existing = new Set(data.inventory.map((item) => item.url));
   const now = new Date().toISOString();
@@ -2852,6 +2864,13 @@ async function handleApi(req, res, pathname) {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
     return sendJson(res, 200, { assignments: orphanSingleSaleAssignments(data) });
+  }
+
+  if (req.method === 'GET' && pathname === '/api/inventory/available') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    const limit = Math.max(1, Math.min(1000, Number.parseInt(requestUrl.searchParams.get('limit'), 10) || 500));
+    return sendJson(res, 200, { items: availableInventoryItems(data, limit) });
   }
 
   if (req.method === 'POST' && pathname === '/api/inventory/add') {
