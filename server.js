@@ -1089,14 +1089,56 @@ function addInventoryLinks(data, rawLinks) {
   return { added, skipped };
 }
 
-function assignInventory(data, count, token) {
-  const available = data.inventory.filter((item) => item.status === 'available');
-  if (available.length < count) {
-    return null;
+async function verifyInventoryLinkAvailable(url) {
+  const cleanUrl = extractFirstUrl(url) || url;
+  if (!cleanUrl) return { usable: false, remove: false, reason: 'empty url' };
+  try {
+    const response = await fetch(cleanUrl, {
+      redirect: 'follow',
+      headers: { 'user-agent': 'Mozilla/5.0 VehicleReportNow inventory verifier' }
+    });
+    const html = await response.text();
+    if (cleanUrl.includes('carfax.codes')) {
+      const statusMatch = html.match(/codeStatus:\s*"([^"]+)"/);
+      const codeStatus = statusMatch ? statusMatch[1] : '';
+      if (codeStatus === 'ACTIVE') return { usable: true, remove: false, reason: 'carfax active' };
+      if (codeStatus === 'INACTIVE') return { usable: false, remove: true, reason: 'carfax inactive' };
+      return { usable: false, remove: false, reason: 'carfax status unknown' };
+    }
+    if (cleanUrl.includes('vinfax.co')) {
+      const applyMatch = html.match(/apply:\s*'([^']+)'/);
+      const apply = applyMatch ? applyMatch[1] : '';
+      if (apply === '0') return { usable: true, remove: false, reason: 'vinfax unused' };
+      if (apply === '1') return { usable: false, remove: true, reason: 'vinfax used' };
+      return { usable: false, remove: false, reason: 'vinfax status unknown' };
+    }
+    return { usable: true, remove: false, reason: 'unknown provider' };
+  } catch (error) {
+    return { usable: false, remove: false, reason: error.message || 'verification failed' };
   }
-  const now = new Date().toISOString();
-  return available.slice(0, count).map((item) => {
+}
+
+async function assignInventory(data, count, token) {
+  const available = data.inventory.filter((item) => item.status === 'available');
+  if (available.length < count) return null;
+  const verified = [];
+  const removeIds = new Set();
+  for (const item of available) {
     item.url = extractFirstUrl(item.url) || item.url;
+    const check = await verifyInventoryLinkAvailable(item.url);
+    if (check.usable) {
+      verified.push(item);
+      if (verified.length >= count) break;
+      continue;
+    }
+    if (check.remove) removeIds.add(item.id);
+  }
+  if (removeIds.size) {
+    data.inventory = data.inventory.filter((item) => !removeIds.has(item.id));
+  }
+  if (verified.length < count) return null;
+  const now = new Date().toISOString();
+  return verified.map((item) => {
     item.status = 'assigned';
     item.assignedAt = now;
     item.assignedBundle = token;
@@ -1104,14 +1146,9 @@ function assignInventory(data, count, token) {
   });
 }
 
-function assignSingleInventoryLink(data) {
-  const item = data.inventory.find((stockItem) => stockItem.status === 'available');
-  if (!item) return null;
-  item.url = extractFirstUrl(item.url) || item.url;
-  item.status = 'assigned';
-  item.assignedAt = new Date().toISOString();
-  item.assignedBundle = 'single-sale';
-  return item.url;
+async function assignSingleInventoryLink(data) {
+  const links = await assignInventory(data, 1, 'single-sale');
+  return links ? links[0] : null;
 }
 
 function releaseUnusedBundleInventory(data, token) {
@@ -1196,7 +1233,7 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
   const origin = publicOrigin(req);
 
   if (order.plan === 'single') {
-    const url = assignSingleInventoryLink(data);
+    const url = await assignSingleInventoryLink(data);
     if (!url) {
       order.status = 'manual';
       order.resultType = 'manual';
@@ -1214,7 +1251,7 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
 
   const count = reportCountForPlan(order.plan, order);
   const token = crypto.randomBytes(5).toString('hex');
-  const stockLinks = assignInventory(data, count, token);
+  const stockLinks = await assignInventory(data, count, token);
   if (!stockLinks) {
     order.status = 'manual';
     order.resultType = 'manual';
@@ -2907,7 +2944,7 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/inventory/single-link') {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
-    const url = assignSingleInventoryLink(data);
+    const url = await assignSingleInventoryLink(data);
     if (!url) return sendJson(res, 400, { error: 'No available inventory links left.' });
     writeData(data);
     return sendJson(res, 200, {
@@ -2975,7 +3012,7 @@ async function handleApi(req, res, pathname) {
 
     const requestedToken = String(body.token || '').trim();
     const token = /^[a-zA-Z0-9_-]{4,64}$/.test(requestedToken) ? requestedToken : crypto.randomBytes(5).toString('hex');
-    const stockLinks = quantity ? assignInventory(data, quantity, token) : [];
+    const stockLinks = quantity ? await assignInventory(data, quantity, token) : [];
     if (quantity && !stockLinks) {
       return sendJson(res, 400, { error: `Not enough inventory. Available stock: ${inventorySummary(data).available}.` });
     }
