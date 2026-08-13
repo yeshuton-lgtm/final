@@ -24,6 +24,7 @@ const STRIPE_MONTHLY_PRICE_ID = process.env.STRIPE_MONTHLY_PRICE_ID || '';
 const STRIPE_STARTER_PRICE_ID = process.env.STRIPE_STARTER_PRICE_ID || '';
 const STRIPE_PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID || '';
 const STRIPE_PREMIUM_PRICE_ID = process.env.STRIPE_PREMIUM_PRICE_ID || '';
+const orderFulfillmentLocks = new Map();
 
 const PLAN_DEFINITIONS = {
   single: { label: 'Single Report', quantity: 1, amount: 500, mode: 'payment' },
@@ -1173,6 +1174,24 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
   order.fulfilledAt = new Date().toISOString();
   writeData(data);
   return order;
+}
+
+async function fulfillPaidOrderOnce(req, orderId, sessionId) {
+  if (orderFulfillmentLocks.has(orderId)) {
+    return orderFulfillmentLocks.get(orderId);
+  }
+  const promise = (async () => {
+    const data = readData();
+    const order = data.orders[orderId];
+    if (!order) return null;
+    return fulfillPaidOrder(req, data, order, sessionId);
+  })();
+  orderFulfillmentLocks.set(orderId, promise);
+  try {
+    return await promise;
+  } finally {
+    orderFulfillmentLocks.delete(orderId);
+  }
 }
 
 function findExistingSearch(data, bundle, rawSearchKey) {
@@ -3178,7 +3197,8 @@ const server = http.createServer(async (req, res) => {
       if (!order) return notFound(res);
       const sessionId = url.searchParams.get('session_id') || order.sessionId;
       if (sessionId && order.status !== 'fulfilled' && order.status !== 'failed' && STRIPE_SECRET_KEY) {
-        await fulfillPaidOrder(req, data, order, sessionId);
+        const updatedOrder = await fulfillPaidOrderOnce(req, order.id, sessionId);
+        if (updatedOrder) Object.assign(order, updatedOrder);
       }
       return sendHtml(res, orderHtml(order));
     }
