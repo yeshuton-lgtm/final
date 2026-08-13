@@ -1042,6 +1042,20 @@ function recentInventoryAssignments(data, limit = 30) {
     });
 }
 
+function orphanSingleSaleAssignments(data) {
+  const deliveredUrls = new Set(Object.values(data.orders || {}).map((order) => extractFirstUrl(order.resultUrl)).filter(Boolean));
+  return data.inventory
+    .filter((item) => item.status === 'assigned' && item.assignedBundle === 'single-sale')
+    .filter((item) => !deliveredUrls.has(extractFirstUrl(item.url) || item.url))
+    .sort((a, b) => String(b.assignedAt).localeCompare(String(a.assignedAt)))
+    .map((item) => ({
+      id: item.id,
+      url: extractFirstUrl(item.url) || item.url,
+      assignedAt: item.assignedAt,
+      assignedBundle: item.assignedBundle
+    }));
+}
+
 function addInventoryLinks(data, rawLinks) {
   const existing = new Set(data.inventory.map((item) => item.url));
   const now = new Date().toISOString();
@@ -2830,8 +2844,14 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/inventory/recent') {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
-    const limit = Math.max(1, Math.min(100, Number.parseInt(requestUrl.searchParams.get('limit'), 10) || 30));
+    const limit = Math.max(1, Math.min(500, Number.parseInt(requestUrl.searchParams.get('limit'), 10) || 30));
     return sendJson(res, 200, { assignments: recentInventoryAssignments(data, limit) });
+  }
+
+  if (req.method === 'GET' && pathname === '/api/inventory/orphans') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    return sendJson(res, 200, { assignments: orphanSingleSaleAssignments(data) });
   }
 
   if (req.method === 'POST' && pathname === '/api/inventory/add') {
