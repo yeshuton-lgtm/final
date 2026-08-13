@@ -1011,6 +1011,36 @@ function inventorySummary(data) {
   };
 }
 
+function recentInventoryAssignments(data, limit = 30) {
+  const orderByUrl = new Map();
+  Object.values(data.orders || {}).forEach((order) => {
+    const url = extractFirstUrl(order.resultUrl);
+    if (url) orderByUrl.set(url, order);
+  });
+  return data.inventory
+    .filter((item) => item.status === 'assigned' && item.assignedAt)
+    .sort((a, b) => String(b.assignedAt).localeCompare(String(a.assignedAt)))
+    .slice(0, limit)
+    .map((item) => {
+      const url = extractFirstUrl(item.url) || item.url;
+      const order = orderByUrl.get(url);
+      const bundle = item.assignedBundle && item.assignedBundle !== 'single-sale' ? data.bundles[item.assignedBundle] : null;
+      return {
+        id: item.id,
+        url,
+        assignedAt: item.assignedAt,
+        assignedBundle: item.assignedBundle,
+        sourceType: order ? 'website order' : item.assignedBundle === 'single-sale' ? 'manual single/admin' : bundle ? 'bundle/admin' : 'assigned',
+        orderId: order ? order.id : '',
+        orderEmail: order ? order.customerEmail : '',
+        orderLabel: order ? planLabel(order.plan, order) : '',
+        orderPaidAt: order ? order.paidAt : '',
+        bundleCustomer: bundle ? bundle.customerName : '',
+        bundleAccount: bundle ? maskAccount(bundle.accountKey) : ''
+      };
+    });
+}
+
 function addInventoryLinks(data, rawLinks) {
   const existing = new Set(data.inventory.map((item) => item.url));
   const now = new Date().toISOString();
@@ -2456,6 +2486,13 @@ function adminHtml() {
     .order-item { border: 1px solid #e3e8ef; border-radius: 8px; padding: 10px; background: #fbfcfe; }
     .order-item strong { display: block; margin-bottom: 4px; }
     .order-meta { color: #667085; font-size: 13px; line-height: 1.45; }
+    .assignment-list { display: grid; gap: 10px; }
+    .assignment-item { border: 1px solid #e3e8ef; border-radius: 8px; padding: 10px; background: #fbfcfe; }
+    .assignment-item strong { display: block; margin-bottom: 4px; }
+    .assignment-source { display: inline-flex; align-items: center; min-height: 22px; border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 800; margin: 6px 0; background: #eef4ff; color: #175cd3; }
+    .assignment-source.website-order { background: #edf8f2; color: #087443; }
+    .assignment-source.manual-single-admin { background: #fff7e6; color: #9a5b00; }
+    .assignment-source.bundle-admin { background: #f4f3ff; color: #5925dc; }
     .order-status { display: inline-flex; align-items: center; min-height: 22px; border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 800; margin-top: 6px; }
     .order-status.fulfilled { background: #edf8f2; color: #087443; }
     .order-status.manual { background: #eef4ff; color: #175cd3; }
@@ -2499,6 +2536,14 @@ function adminHtml() {
         <p class="muted">Latest 20 website orders from checkout.</p>
         <div class="order-list" id="orderRows">
           <p class="muted">Loading purchases...</p>
+        </div>
+      </section>
+
+      <section class="box">
+        <h2>Recent Inventory Assignments</h2>
+        <p class="muted">Latest stock links taken from inventory. Use this to compare inventory movement against paid orders.</p>
+        <div class="assignment-list" id="assignmentRows">
+          <p class="muted">Loading assignments...</p>
         </div>
       </section>
 
@@ -2594,6 +2639,38 @@ function adminHtml() {
         document.getElementById('orderRows').innerHTML = '<p class="muted">' + error.message + '</p>';
       }
     }
+    function renderAssignments(assignments) {
+      const rows = document.getElementById('assignmentRows');
+      if (!assignments.length) {
+        rows.innerHTML = '<p class="muted">No assigned inventory yet.</p>';
+        return;
+      }
+      rows.innerHTML = '';
+      assignments.forEach((item) => {
+        const div = document.createElement('div');
+        div.className = 'assignment-item';
+        const sourceClass = String(item.sourceType || '').replace(/[^a-z0-9]+/g, '-');
+        const details = item.sourceType === 'website order'
+          ? (item.orderEmail || 'Unknown customer') + ' | ' + (item.orderLabel || 'Order') + ' | ' + (item.orderId || '')
+          : item.sourceType === 'bundle/admin'
+            ? 'Bundle ' + (item.assignedBundle || '') + (item.bundleAccount ? ' | Account ' + item.bundleAccount : '')
+            : item.assignedBundle || 'manual';
+        div.innerHTML =
+          '<strong>' + formatOrderDate(item.assignedAt) + '</strong>' +
+          '<span class="assignment-source ' + sourceClass + '">' + item.sourceType + '</span>' +
+          '<div class="order-meta">' + details + '</div>' +
+          '<a class="order-link" href="' + item.url + '" target="_blank" rel="noopener">' + item.url + '</a>';
+        rows.appendChild(div);
+      });
+    }
+    async function loadAssignments() {
+      try {
+        const data = await api('/api/inventory/recent');
+        renderAssignments(data.assignments || []);
+      } catch (error) {
+        document.getElementById('assignmentRows').innerHTML = '<p class="muted">' + error.message + '</p>';
+      }
+    }
     document.getElementById('addStock').addEventListener('click', async () => {
       const links = document.getElementById('stockLinks').value.split('\\n').map((item) => item.trim()).filter(Boolean);
       try {
@@ -2605,6 +2682,7 @@ function adminHtml() {
         document.getElementById('stockLinks').value = '';
         await loadInventory();
         await loadOrders();
+        await loadAssignments();
       } catch (error) {
         document.getElementById('stockResult').textContent = error.message;
       }
@@ -2620,6 +2698,7 @@ function adminHtml() {
         copyButton.dataset.url = data.url;
         await loadInventory();
         await loadOrders();
+        await loadAssignments();
       } catch (error) {
         document.getElementById('singleResult').textContent = error.message;
       }
@@ -2646,6 +2725,7 @@ function adminHtml() {
         document.getElementById('quantity').value = '';
         await loadInventory();
         await loadOrders();
+        await loadAssignments();
       } catch (error) {
         document.getElementById('result').textContent = error.message;
       }
@@ -2665,6 +2745,7 @@ function adminHtml() {
         document.getElementById('releaseToken').value = '';
         await loadInventory();
         await loadOrders();
+        await loadAssignments();
       } catch (error) {
         document.getElementById('releaseResult').textContent = error.message;
       }
@@ -2672,9 +2753,11 @@ function adminHtml() {
     document.getElementById('refresh').addEventListener('click', async () => {
       await loadInventory();
       await loadOrders();
+      await loadAssignments();
     });
     loadInventory();
     loadOrders();
+    loadAssignments();
   </script>
 </body>
 </html>`;
@@ -2702,6 +2785,13 @@ async function handleApi(req, res, pathname) {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
     return sendJson(res, 200, { orders: recentOrders(data, 20) });
+  }
+
+  if (req.method === 'GET' && pathname === '/api/inventory/recent') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    const limit = Math.max(1, Math.min(100, Number.parseInt(requestUrl.searchParams.get('limit'), 10) || 30));
+    return sendJson(res, 200, { assignments: recentInventoryAssignments(data, limit) });
   }
 
   if (req.method === 'POST' && pathname === '/api/inventory/add') {
