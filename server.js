@@ -1114,6 +1114,27 @@ function releaseUnusedBundleInventory(data, token) {
   return { released, unused: unusedUrls.size };
 }
 
+function releaseAssignedInventoryItems(data, ids) {
+  const requested = new Set(ids.map((id) => String(id || '').trim()).filter(Boolean));
+  if (!requested.size) return { released: 0, skipped: 0 };
+  const deliveredUrls = new Set(Object.values(data.orders || {}).map((order) => extractFirstUrl(order.resultUrl)).filter(Boolean));
+  let released = 0;
+  let skipped = 0;
+  data.inventory.forEach((item) => {
+    if (!requested.has(item.id)) return;
+    const url = extractFirstUrl(item.url) || item.url;
+    if (item.status !== 'assigned' || deliveredUrls.has(url) || (item.assignedBundle && item.assignedBundle !== 'single-sale')) {
+      skipped += 1;
+      return;
+    }
+    item.status = 'available';
+    item.assignedAt = '';
+    item.assignedBundle = '';
+    released += 1;
+  });
+  return { released, skipped };
+}
+
 async function fulfillPaidOrder(req, data, order, sessionId) {
   if (order.status === 'fulfilled') return order;
   if (order.status === 'failed') return order;
@@ -2838,6 +2859,16 @@ async function handleApi(req, res, pathname) {
       url,
       inventory: inventorySummary(data)
     });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/inventory/release-items') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    const body = await readBody(req);
+    const ids = Array.isArray(body.ids) ? body.ids : [];
+    const result = releaseAssignedInventoryItems(data, ids);
+    writeData(data);
+    return sendJson(res, 200, { ...result, inventory: inventorySummary(data) });
   }
 
   if (req.method === 'GET' && pathname === '/api/admin/search') {
