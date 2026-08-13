@@ -1161,6 +1161,22 @@ function releaseAssignedInventoryItems(data, ids) {
   return { released, skipped };
 }
 
+function removeInventoryItems(data, ids) {
+  const requested = new Set(ids.map((id) => String(id || '').trim()).filter(Boolean));
+  if (!requested.size) return { removed: 0, skipped: 0 };
+  const before = data.inventory.length;
+  let skipped = 0;
+  data.inventory = data.inventory.filter((item) => {
+    if (!requested.has(item.id)) return true;
+    if (item.status !== 'available') {
+      skipped += 1;
+      return true;
+    }
+    return false;
+  });
+  return { removed: before - data.inventory.length, skipped };
+}
+
 async function fulfillPaidOrder(req, data, order, sessionId) {
   if (order.status === 'fulfilled') return order;
   if (order.status === 'failed') return order;
@@ -2906,6 +2922,16 @@ async function handleApi(req, res, pathname) {
     const body = await readBody(req);
     const ids = Array.isArray(body.ids) ? body.ids : [];
     const result = releaseAssignedInventoryItems(data, ids);
+    writeData(data);
+    return sendJson(res, 200, { ...result, inventory: inventorySummary(data) });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/inventory/remove-items') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    const body = await readBody(req);
+    const ids = Array.isArray(body.ids) ? body.ids : [];
+    const result = removeInventoryItems(data, ids);
     writeData(data);
     return sendJson(res, 200, { ...result, inventory: inventorySummary(data) });
   }
