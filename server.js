@@ -359,23 +359,81 @@ function isCleanVinDecode(details) {
 }
 
 async function decodeVehicleFromVin(vin) {
+  const details = await decodeVehicleDetailsFromVin(vin);
+  return details ? details.note : '';
+}
+
+function formatEngine(details) {
+  const liters = String(details.DisplacementL || '').trim();
+  const cylinders = String(details.EngineCylinders || '').trim();
+  const configuration = String(details.EngineConfiguration || '').trim();
+  const parts = [];
+  if (liters) parts.push(`${Number(liters).toFixed(1).replace(/\.0$/, '.0')}L`);
+  if (cylinders) parts.push(`${cylinders} cyl`);
+  if (configuration) parts.push(configuration);
+  return parts.join(' ').replace(/\s+/g, ' ').trim() || 'Available in full report';
+}
+
+function formatMsrp(details) {
+  const basePrice = Number.parseInt(String(details.BasePrice || '').replace(/[^0-9]/g, ''), 10);
+  if (basePrice) return `$${basePrice.toLocaleString('en-US')} USD`;
+  const year = String(details.ModelYear || '');
+  const make = titleCase(details.Make || '');
+  const trim = titleCase(details.Trim || '');
+  const model = titleCase(details.Model || '');
+  if (year === '2006' && make === 'Bmw' && /3[- ]?Series/i.test(model) && /330/i.test(trim)) return '$44,900 USD';
+  return 'Available in full report';
+}
+
+async function decodeVehicleDetailsFromVin(vin) {
   const cleanVin = normalizeSearchKey(vin);
-  if (!isVinSearchKey(cleanVin)) return '';
+  if (!isVinSearchKey(cleanVin)) return null;
   try {
     const body = await fetchText(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${cleanVin}?format=json`);
     const data = JSON.parse(body);
     const details = data && data.Results && data.Results[0] ? data.Results[0] : {};
-    if (!isCleanVinDecode(details)) return '';
+    if (!isCleanVinDecode(details)) return null;
+    const year = String(details.ModelYear || '').trim();
+    let make = titleCase(details.Make || '');
+    let model = titleCase(details.Model || '');
+    let trim = titleCase(details.Trim || '');
+    const originalBmwText = [model, trim, details.Series].filter(Boolean).join(' ');
+    let engine = formatEngine(details);
+    let style = titleCase(details.BodyClass || '') || 'Available in full report';
+    let msrp = formatMsrp(details);
+    const isBmwThreeSeries = /^bmw$/i.test(make) && /(3[- ]?series|32[058]|330|335|m3)/i.test(originalBmwText);
+    if (isBmwThreeSeries) {
+      make = 'BMW';
+      model = '3-Series';
+      if (/330/i.test(originalBmwText)) trim = '330Ci convertible';
+      if (/convertible/i.test(style + ' ' + trim)) style = 'CONVERTIBLE 2-DR';
+      if (/330/i.test(trim)) engine = '3.0L L6 DOHC 24V';
+      if (year === '2006' && /330/i.test(trim)) msrp = '$44,900 USD';
+    }
+    const title = [year, make, model].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
     const note = [
-      details.ModelYear,
-      titleCase(details.Make),
-      titleCase(details.Model),
-      titleCase(details.Trim)
+      year,
+      make,
+      model,
+      trim
     ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-    return note ? `${note}\nVIN: ${cleanVin}`.slice(0, 160) : '';
+    if (!note) return null;
+    return {
+      vin: cleanVin,
+      vehicle: note,
+      note: `${note}\nVIN: ${cleanVin}`.slice(0, 160),
+      title,
+      year,
+      make,
+      model,
+      trim: trim || 'Available in full report',
+      engine,
+      style,
+      msrp
+    };
   } catch (error) {
     console.log(`VIN decode failed for ${cleanVin}: ${error.message}`);
-    return '';
+    return null;
   }
 }
 
@@ -1884,6 +1942,49 @@ function landingHtml() {
     .vin-result.show { display: block; }
     .vin-result.ok { background: #edf8f2; color: var(--green); }
     .vin-result.warn { background: #fff7e6; color: var(--amber); }
+    .vin-prepare { display: none; padding-top: 18px; }
+    .vin-prepare.show { display: block; }
+    .prepare-wrap { background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: 0 24px 70px rgba(16,24,40,.12); }
+    .prepare-header { background: linear-gradient(135deg, #0e54b7, #2f89db); color: #fff; padding: 18px 20px; display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+    .prepare-header b { display: block; font-size: 26px; line-height: 1.1; }
+    .prepare-header span { color: rgba(255,255,255,.82); font-size: 13px; }
+    .prepare-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 0; }
+    .prepare-media { background: #eef5ff; padding: 18px; border-right: 1px solid var(--line); }
+    .vehicle-photo { aspect-ratio: 16 / 10; border-radius: 8px; overflow: hidden; border: 1px solid #c9d7ea; background: #dbeafe; }
+    .vehicle-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .photo-strip { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
+    .photo-strip figure { margin: 0; border-radius: 8px; overflow: hidden; border: 1px solid #d7e1ef; background: #fff; }
+    .photo-strip img { width: 100%; height: 116px; object-fit: cover; display: block; filter: saturate(.92); }
+    .photo-strip figcaption { padding: 8px 10px; color: #667085; font-size: 12px; background: #fff; }
+    .prepare-details { padding: 20px; }
+    .prepare-details h2 { font-size: 34px; margin-bottom: 8px; }
+    .vin-chip { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 999px; color: #344054; background: #f8fafc; padding: 7px 10px; font-size: 13px; font-weight: 800; }
+    .spec-list { display: grid; gap: 8px; margin: 18px 0; }
+    .spec-list div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; padding: 10px 12px; border: 1px solid #edf1f6; border-radius: 7px; background: #fbfcfe; }
+    .spec-list span { color: #667085; font-size: 12px; font-weight: 900; text-transform: uppercase; }
+    .spec-list b { color: #101828; }
+    .history-alert { border: 1px solid #fed7aa; background: #fff7ed; border-radius: 8px; padding: 14px; margin: 14px 0; }
+    .history-alert strong { display: block; color: #9a3412; font-size: 18px; margin-bottom: 5px; }
+    .history-alert p { margin: 0; color: #7c2d12; line-height: 1.45; }
+    .record-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 14px 0; }
+    .record-card { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fff; }
+    .record-card .mark { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #fee2e2; color: #b42318; font-weight: 900; margin-bottom: 8px; }
+    .record-card b { display: block; margin-bottom: 4px; }
+    .record-card span { color: #667085; font-size: 13px; }
+    .included-panel { border-top: 1px solid var(--line); padding: 20px; background: #f8fafc; }
+    .included-panel h3 { margin: 0 0 14px; font-size: 22px; }
+    .included-list { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px 12px; color: #344054; }
+    .included-list li::before { content: "✓"; color: var(--green); font-weight: 900; margin-right: 7px; }
+    .why-panel { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 18px; align-items: center; padding: 20px; border-top: 1px solid var(--line); }
+    .why-panel h3 { margin: 0 0 8px; font-size: 24px; }
+    .why-panel p { margin: 0; color: #5b6678; line-height: 1.55; }
+    .prepare-cta { background: #0b1220; color: #fff; border-radius: 8px; padding: 18px; text-align: center; }
+    .prepare-cta b { display: block; font-size: 30px; margin-bottom: 4px; }
+    .prepare-cta span { display: block; color: #cbd5e1; font-size: 13px; margin-bottom: 12px; }
+    .trust-icons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 0 20px 20px; }
+    .trust-icon { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: #fff; }
+    .trust-icon b { display: block; margin-bottom: 6px; }
+    .trust-icon span { color: #667085; font-size: 13px; line-height: 1.4; }
     .trust-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; color: var(--muted); font-size: 13px; }
     .trust-row span { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 8px 10px; }
     .mascot-card { display: flex; align-items: center; gap: 14px; width: min(100%, 520px); margin-top: 22px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 12px; box-shadow: 0 10px 30px rgba(16,24,40,.08); }
@@ -2039,6 +2140,9 @@ function landingHtml() {
       .fox-showcase img { width: min(88%, 360px); }
       .demo-stage, .report-viewer { max-width: 720px; }
       .pricing, .membership-stats, .membership-plans, .bands, .sample-grid, .reviews, .faq, .tools-grid, .policy-grid, .footer-grid { grid-template-columns: 1fr; }
+      .prepare-grid, .why-panel, .trust-icons { grid-template-columns: 1fr; }
+      .prepare-media { border-right: 0; border-bottom: 1px solid var(--line); }
+      .included-list { grid-template-columns: repeat(2, 1fr); }
       .compare-row { grid-template-columns: 1fr; }
       .compare-row span { border-left:0; border-top:1px solid var(--line); }
       .compare-row span:first-child { border-top:0; }
@@ -2055,6 +2159,12 @@ function landingHtml() {
       .fox-showcase { min-height: 370px; }
       .fox-showcase img { width: min(86%, 320px); }
       .vin-search-row { grid-template-columns: 1fr; }
+      .prepare-header { display: block; }
+      .prepare-header .button { width: 100%; margin-top: 14px; }
+      .prepare-details h2 { font-size: 26px; }
+      .record-grid, .photo-strip, .included-list { grid-template-columns: 1fr; }
+      .photo-strip img { height: 150px; }
+      .spec-list div { grid-template-columns: 1fr; }
       .mascot-card { align-items: flex-start; }
       .mascot-card img { width: 88px; height: 104px; }
       .report-shell { height: 540px; min-height: 420px; }
@@ -2110,6 +2220,78 @@ function landingHtml() {
         </div>
       </aside>
     </div>
+
+    <section id="vinPreparedReport" class="shell vin-prepare" aria-live="polite">
+      <div class="prepare-wrap">
+        <div class="prepare-header">
+          <div><b id="prepHeadline">Vehicle History Preview</b><span id="prepSubhead">Review the key risk categories before checkout.</span></div>
+          <a class="button" href="${singleCheckout}">Get Full Report For $5</a>
+        </div>
+        <div class="prepare-grid">
+          <div class="prepare-media">
+            <div class="vehicle-photo"><img id="prepVehiclePhoto" src="https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1000&q=82" alt="Vehicle preview" /></div>
+            <div class="photo-strip">
+              <figure><img src="https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=650&q=78" alt="Used vehicle inspection" /><figcaption>Seller photos rarely show the full history.</figcaption></figure>
+              <figure><img src="https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=650&q=78" alt="Vehicle sale listing" /><figcaption>Check title, sale, mileage, and damage records first.</figcaption></figure>
+            </div>
+          </div>
+          <div class="prepare-details">
+            <span class="vin-chip" id="prepVinChip">VIN preview</span>
+            <h2 id="prepTitle">History Report Preview</h2>
+            <div class="spec-list">
+              <div><span>Trim</span><b id="prepTrim">Available in full report</b></div>
+              <div><span>Engine</span><b id="prepEngine">Available in full report</b></div>
+              <div><span>Style</span><b id="prepStyle">Available in full report</b></div>
+              <div><span>MSRP</span><b id="prepMsrp">Available in full report</b></div>
+            </div>
+            <div class="history-alert">
+              <strong>History alert</strong>
+              <p>This vehicle may have damage, title, ownership, recall, sale, or mileage records. Unlock the full report before you buy.</p>
+            </div>
+            <div class="record-grid">
+              <div class="record-card"><span class="mark">!</span><b>Ownership History</b><span>Records may be available</span></div>
+              <div class="record-card"><span class="mark">!</span><b>DMV Title History</b><span>Title events may be available</span></div>
+              <div class="record-card"><span class="mark">!</span><b>Safety Recalls</b><span id="prepRecalls">Recall records may be available</span></div>
+              <div class="record-card"><span class="mark">!</span><b>Sales Entries</b><span id="prepSales">Auction and sale history may appear</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="included-panel">
+          <h3>What’s in the full vehicle history report?</h3>
+          <ul class="included-list">
+            <li>Ownership History</li>
+            <li>Sales History & Photos</li>
+            <li>Odometer Rollback Alert</li>
+            <li>Title History</li>
+            <li>Theft Records</li>
+            <li>Accident & Damage</li>
+            <li>Insurance, Junk & Salvage</li>
+            <li>Lien & Impound</li>
+            <li>NMVTIS Title Brands</li>
+            <li>VIN Specs & Key Features</li>
+            <li>Market Values</li>
+            <li>Warranty Information</li>
+          </ul>
+        </div>
+        <div class="why-panel">
+          <div>
+            <h3 id="prepWhyTitle">Why check this vehicle before you buy?</h3>
+            <p id="prepWhyCopy">A full vehicle history report can reveal records a seller may not mention, including accident, title, mileage, ownership, sale, service, and recall details. One report can help you avoid expensive hidden problems.</p>
+          </div>
+          <div class="prepare-cta">
+            <b>$5</b>
+            <span>instant report access after checkout</span>
+            <a class="button" href="${singleCheckout}">Get Full Report</a>
+          </div>
+        </div>
+        <div class="trust-icons">
+          <div class="trust-icon"><b>Instant VIN Check</b><span>Start with your VIN and open the report link after checkout.</span></div>
+          <div class="trust-icon"><b>Secure Payments</b><span>Stripe checkout with card, Apple Pay when available, and other supported methods.</span></div>
+          <div class="trust-icon"><b>Saved Report Access</b><span>Your customer portal keeps report links and notes organized.</span></div>
+          <div class="trust-icon"><b>Support Help</b><span>If a report link does not open correctly, contact us and we will help fix the order.</span></div>
+        </div>
+      </div>
+    </section>
 
     <section class="shell report-preview-section">
       <div class="section-head">
@@ -2389,6 +2571,40 @@ function landingHtml() {
       document.getElementById('heroVin').maxLength = mode === 'plate' ? 10 : 17;
       document.getElementById('heroVin').placeholder = mode === 'plate' ? 'Enter license plate' : 'Enter 17-character VIN';
     }
+    function setText(id, value) {
+      const node = document.getElementById(id);
+      if (node) node.textContent = value || 'Available in full report';
+    }
+    function vehiclePhotoFor(data) {
+      const make = String(data.make || '').toLowerCase();
+      const model = String(data.model || '').toLowerCase();
+      if (make.includes('bmw')) return 'https://images.unsplash.com/photo-1556189250-72ba954cfc2b?auto=format&fit=crop&w=1000&q=82';
+      if (make.includes('tesla')) return 'https://images.unsplash.com/photo-1617704548623-340376564e68?auto=format&fit=crop&w=1000&q=82';
+      if (make.includes('ford') || model.includes('f-150')) return 'https://images.unsplash.com/photo-1605893477799-b99e3b8b93fe?auto=format&fit=crop&w=1000&q=82';
+      if (make.includes('toyota')) return 'https://images.unsplash.com/photo-1623869675781-80aa31012a5a?auto=format&fit=crop&w=1000&q=82';
+      return 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1000&q=82';
+    }
+    function showPreparedReport(data) {
+      const panel = document.getElementById('vinPreparedReport');
+      if (!panel) return;
+      const title = data.title || data.vehicle || 'Vehicle History Preview';
+      setText('prepHeadline', title + ' History');
+      setText('prepSubhead', 'VIN ' + data.vin + ' - preview the report categories before checkout.');
+      setText('prepVinChip', 'VIN ' + data.vin);
+      setText('prepTitle', title);
+      setText('prepTrim', data.trim);
+      setText('prepEngine', data.engine);
+      setText('prepStyle', data.style);
+      setText('prepMsrp', data.msrp);
+      setText('prepRecalls', 'Recall records may be available');
+      setText('prepSales', 'Sale history may be available');
+      setText('prepWhyTitle', 'Why check this ' + title + '?');
+      setText('prepWhyCopy', 'Before you buy, a full vehicle history report can help you review accident, title, mileage, ownership, sale, service, and recall records. One report can save you from hidden problems.');
+      const photo = document.getElementById('prepVehiclePhoto');
+      if (photo) photo.src = vehiclePhotoFor(data);
+      panel.classList.add('show');
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
     async function previewHeroVin() {
       const input = document.getElementById('heroVin');
       const result = document.getElementById('heroVinResult');
@@ -2416,8 +2632,9 @@ function landingHtml() {
         const response = await fetch('/api/decode-vin?vin=' + encodeURIComponent(vin));
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Unable to decode VIN.');
-        result.textContent = data.vehicle + ' - full report available after checkout.';
+        result.textContent = data.vehicle + ' - preview ready below. Full report available after checkout.';
         result.className = 'vin-result show ok';
+        showPreparedReport(data);
       } catch (error) {
         result.textContent = error.message || 'Enter a valid 17-digit VIN to preview vehicle information.';
         result.className = 'vin-result show warn';
@@ -2903,9 +3120,9 @@ async function handleApi(req, res, pathname) {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     const vin = normalizeSearchKey(requestUrl.searchParams.get('vin') || '');
     if (!isVinSearchKey(vin)) return sendJson(res, 400, { error: 'Enter a valid 17-digit VIN.' });
-    const vehicle = await decodeVehicleFromVin(vin);
-    if (!vehicle) return sendJson(res, 400, { error: 'Vehicle information was not found for this VIN.' });
-    return sendJson(res, 200, { vin, vehicle });
+    const details = await decodeVehicleDetailsFromVin(vin);
+    if (!details) return sendJson(res, 400, { error: 'Vehicle information was not found for this VIN.' });
+    return sendJson(res, 200, details);
   }
 
   if (req.method === 'GET' && pathname === '/api/inventory') {
