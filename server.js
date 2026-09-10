@@ -1952,6 +1952,7 @@ function landingHtml() {
     .prepare-media { background: #eef5ff; padding: 18px; border-right: 1px solid var(--line); }
     .vehicle-photo { aspect-ratio: 16 / 10; border-radius: 8px; overflow: hidden; border: 1px solid #c9d7ea; background: #dbeafe; }
     .vehicle-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .vehicle-photo-note { margin: 10px 0 0; color: #667085; font-size: 12px; line-height: 1.45; }
     .photo-strip { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
     .photo-strip figure { margin: 0; border-radius: 8px; overflow: hidden; border: 1px solid #d7e1ef; background: #fff; }
     .photo-strip img { width: 100%; height: 116px; object-fit: cover; display: block; filter: saturate(.92); }
@@ -1981,6 +1982,15 @@ function landingHtml() {
     .prepare-cta { background: #0b1220; color: #fff; border-radius: 8px; padding: 18px; text-align: center; }
     .prepare-cta b { display: block; font-size: 30px; margin-bottom: 4px; }
     .prepare-cta span { display: block; color: #cbd5e1; font-size: 13px; margin-bottom: 12px; }
+    .history-risk { border-top: 1px solid var(--line); padding: 20px; background: #fff; }
+    .history-risk h3 { margin: 0 0 8px; font-size: 24px; }
+    .history-risk p { margin: 0 0 16px; color: #5b6678; line-height: 1.58; max-width: 920px; }
+    .risk-story { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .risk-card { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; box-shadow: 0 10px 28px rgba(16,24,40,.06); }
+    .risk-card strong { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; color: #fff; background: #252525; font-size: 15px; }
+    .risk-card.scam strong { background: #8a3329; }
+    .risk-card img { display: block; width: 100%; height: 210px; object-fit: cover; background: #eef2f6; }
+    .risk-card span { display: block; padding: 11px 14px; color: #5b6678; font-size: 13px; line-height: 1.4; }
     .trust-icons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 0 20px 20px; }
     .trust-icon { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: #fff; }
     .trust-icon b { display: block; margin-bottom: 6px; }
@@ -2141,6 +2151,7 @@ function landingHtml() {
       .demo-stage, .report-viewer { max-width: 720px; }
       .pricing, .membership-stats, .membership-plans, .bands, .sample-grid, .reviews, .faq, .tools-grid, .policy-grid, .footer-grid { grid-template-columns: 1fr; }
       .prepare-grid, .why-panel, .trust-icons { grid-template-columns: 1fr; }
+      .risk-story { grid-template-columns: 1fr; }
       .prepare-media { border-right: 0; border-bottom: 1px solid var(--line); }
       .included-list { grid-template-columns: repeat(2, 1fr); }
       .compare-row { grid-template-columns: 1fr; }
@@ -2164,6 +2175,7 @@ function landingHtml() {
       .prepare-details h2 { font-size: 26px; }
       .record-grid, .photo-strip, .included-list { grid-template-columns: 1fr; }
       .photo-strip img { height: 150px; }
+      .risk-card img { height: auto; }
       .spec-list div { grid-template-columns: 1fr; }
       .mascot-card { align-items: flex-start; }
       .mascot-card img { width: 88px; height: 104px; }
@@ -2230,10 +2242,7 @@ function landingHtml() {
         <div class="prepare-grid">
           <div class="prepare-media">
             <div class="vehicle-photo"><img id="prepVehiclePhoto" src="https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1000&q=82" alt="Vehicle preview" /></div>
-            <div class="photo-strip">
-              <figure><img src="https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=650&q=78" alt="Used vehicle inspection" /><figcaption>Seller photos rarely show the full history.</figcaption></figure>
-              <figure><img src="https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=650&q=78" alt="Vehicle sale listing" /><figcaption>Check title, sale, mileage, and damage records first.</figcaption></figure>
-            </div>
+            <p class="vehicle-photo-note">Representative vehicle image matched as closely as possible from VIN details. Full report access can include title, sale, damage, mileage, ownership, and photo records when available.</p>
           </div>
           <div class="prepare-details">
             <span class="vin-chip" id="prepVinChip">VIN preview</span>
@@ -2282,6 +2291,22 @@ function landingHtml() {
             <b>$5</b>
             <span>instant report access after checkout</span>
             <a class="button" href="${singleCheckout}">Get Full Report</a>
+          </div>
+        </div>
+        <div class="history-risk">
+          <h3 id="prepRiskTitle">Why do you need to purchase the full history report?</h3>
+          <p id="prepRiskCopy">Used vehicles can look clean after repairs, even when a previous record shows accident damage, total loss, salvage, auction sale, mileage issues, or title problems. Before you buy, a full history report helps you review critical records that sellers may not mention.</p>
+          <div class="risk-story">
+            <div class="risk-card">
+              <strong><span>1 month before sale</span><span>Damage history</span></strong>
+              <img src="/assets/risk-before-sale.png" alt="Example of damage records before a vehicle sale" />
+              <span>Damage or auction photos can reveal what the listing does not show.</span>
+            </div>
+            <div class="risk-card scam">
+              <strong><span>On sale</span><span>Buyer risk alert</span></strong>
+              <img src="/assets/risk-on-sale.png" alt="Example of cleaned vehicle listing photos after repair" />
+              <span>The same vehicle can appear clean later. Check the report before sending money or meeting the seller.</span>
+            </div>
           </div>
         </div>
         <div class="trust-icons">
@@ -2578,7 +2603,8 @@ function landingHtml() {
     function vehiclePhotoFor(data) {
       const make = String(data.make || '').toLowerCase();
       const model = String(data.model || '').toLowerCase();
-      if (make.includes('bmw')) return 'https://images.unsplash.com/photo-1556189250-72ba954cfc2b?auto=format&fit=crop&w=1000&q=82';
+      if (make.includes('bmw') && (model.includes('3') || model.includes('series'))) return 'https://commons.wikimedia.org/wiki/Special:FilePath/BMW%20330Ci%20Sport%20Convertible%20-%20Flickr%20-%20The%20Car%20Spy%20%2822%29.jpg';
+      if (make.includes('bmw')) return 'https://commons.wikimedia.org/wiki/Special:FilePath/BMW%20330Ci%20Sport%20Convertible%20-%20Flickr%20-%20The%20Car%20Spy%20%2822%29.jpg';
       if (make.includes('tesla')) return 'https://images.unsplash.com/photo-1617704548623-340376564e68?auto=format&fit=crop&w=1000&q=82';
       if (make.includes('ford') || model.includes('f-150')) return 'https://images.unsplash.com/photo-1605893477799-b99e3b8b93fe?auto=format&fit=crop&w=1000&q=82';
       if (make.includes('toyota')) return 'https://images.unsplash.com/photo-1623869675781-80aa31012a5a?auto=format&fit=crop&w=1000&q=82';
@@ -2600,6 +2626,8 @@ function landingHtml() {
       setText('prepSales', 'Sale history may be available');
       setText('prepWhyTitle', 'Why check this ' + title + '?');
       setText('prepWhyCopy', 'Before you buy, a full vehicle history report can help you review accident, title, mileage, ownership, sale, service, and recall records. One report can save you from hidden problems.');
+      setText('prepRiskTitle', 'Why do you need to purchase the full history report for ' + title + '?');
+      setText('prepRiskCopy', 'Thousands of used car buyers check history records to reveal what sellers may not mention. Before you buy, a full report can review 70+ important data points for this ' + title + ' and help you avoid hidden accident, title, mileage, ownership, sale, and salvage problems.');
       const photo = document.getElementById('prepVehiclePhoto');
       if (photo) photo.src = vehiclePhotoFor(data);
       panel.classList.add('show');
@@ -3593,6 +3621,17 @@ const server = http.createServer(async (req, res) => {
       if (!fs.existsSync(imagePath)) return notFound(res);
       res.writeHead(200, {
         'content-type': 'image/jpeg',
+        'cache-control': 'public, max-age=31536000, immutable'
+      });
+      return res.end(fs.readFileSync(imagePath));
+    }
+
+    const riskAssetMatch = pathname.match(/^\/assets\/(risk-(?:before-sale|on-sale)\.png)$/);
+    if (riskAssetMatch) {
+      const imagePath = path.join(__dirname, 'public', riskAssetMatch[1]);
+      if (!fs.existsSync(imagePath)) return notFound(res);
+      res.writeHead(200, {
+        'content-type': 'image/png',
         'cache-control': 'public, max-age=31536000, immutable'
       });
       return res.end(fs.readFileSync(imagePath));
