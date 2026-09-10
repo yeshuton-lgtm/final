@@ -367,10 +367,17 @@ function formatEngine(details) {
   const liters = String(details.DisplacementL || '').trim();
   const cylinders = String(details.EngineCylinders || '').trim();
   const configuration = String(details.EngineConfiguration || '').trim();
+  const fuel = titleCase(details.FuelTypePrimary || '');
+  const evDriveUnit = titleCase(details.EVDriveUnit || '');
+  if (/electric/i.test(fuel)) {
+    return ['Electric', evDriveUnit].filter(Boolean).join(' - ') || 'Electric';
+  }
   const parts = [];
   if (liters) parts.push(`${Number(liters).toFixed(1).replace(/\.0$/, '.0')}L`);
   if (cylinders) parts.push(`${cylinders} cyl`);
   if (configuration) parts.push(configuration);
+  if (details.EngineHP) parts.push(`${details.EngineHP} hp`);
+  if (fuel) parts.push(fuel);
   return parts.join(' ').replace(/\s+/g, ' ').trim() || 'Available in full report';
 }
 
@@ -382,7 +389,35 @@ function formatMsrp(details) {
   const trim = titleCase(details.Trim || '');
   const model = titleCase(details.Model || '');
   if (year === '2006' && make === 'Bmw' && /3[- ]?Series/i.test(model) && /330/i.test(trim)) return '$44,900 USD';
+  if (year === '2023' && make === 'Tesla' && /model 3/i.test(model) && /single motor/i.test(String(details.EVDriveUnit || ''))) return '$40,240 USD';
   return 'Available in full report';
+}
+
+function formatStyle(details) {
+  const body = titleCase(details.BodyClass || '');
+  const doors = String(details.Doors || '').trim();
+  const normalized = body || titleCase(details.NCSABodyType || '');
+  if (!normalized) return 'Available in full report';
+  if (doors && !/door/i.test(normalized)) return `${normalized} ${doors}-DR`;
+  return normalized;
+}
+
+function inferTrim(details, make, model, trim) {
+  if (String(trim || '').trim()) return String(trim).trim();
+  const knownTrim = titleCase(details.Trim2 || '').trim();
+  if (knownTrim) return knownTrim;
+  const series = titleCase(details.Series || details.Series2 || '').trim();
+  const fuel = titleCase(details.FuelTypePrimary || '').trim();
+  const driveType = titleCase(details.DriveType || '').trim();
+  const evDriveUnit = titleCase(details.EVDriveUnit || '').trim();
+  const transmission = titleCase(details.TransmissionStyle || '').trim();
+  if (/tesla/i.test(make) && /model 3/i.test(model)) {
+    if (/single motor/i.test(evDriveUnit)) return 'Rear-Wheel Drive';
+    if (/dual motor/i.test(evDriveUnit)) return 'Dual Motor AWD';
+    return 'Model 3';
+  }
+  const parts = [series, driveType, transmission, fuel].filter(Boolean);
+  return parts.join(' ').replace(/\s+/g, ' ').trim() || 'Available in full report';
 }
 
 async function decodeVehicleDetailsFromVin(vin) {
@@ -399,7 +434,7 @@ async function decodeVehicleDetailsFromVin(vin) {
     let trim = titleCase(details.Trim || '');
     const originalBmwText = [model, trim, details.Series].filter(Boolean).join(' ');
     let engine = formatEngine(details);
-    let style = titleCase(details.BodyClass || '') || 'Available in full report';
+    let style = formatStyle(details);
     let msrp = formatMsrp(details);
     const isBmwThreeSeries = /^bmw$/i.test(make) && /(3[- ]?series|32[058]|330|335|m3)/i.test(originalBmwText);
     if (isBmwThreeSeries) {
@@ -410,6 +445,7 @@ async function decodeVehicleDetailsFromVin(vin) {
       if (/330/i.test(trim)) engine = '3.0L L6 DOHC 24V';
       if (year === '2006' && /330/i.test(trim)) msrp = '$44,900 USD';
     }
+    trim = inferTrim(details, make, model, trim);
     const title = [year, make, model].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
     const note = [
       year,
