@@ -118,6 +118,7 @@ function migrateData(data) {
     order.customerEmail = String(order.customerEmail || '');
     order.customerName = String(order.customerName || '');
     order.paidAt = String(order.paidAt || '');
+    order.processingAt = String(order.processingAt || '');
     order.resultUrl = extractFirstUrl(order.resultUrl) || String(order.resultUrl || '');
     order.resultType = String(order.resultType || '');
     order.error = String(order.error || '');
@@ -1218,9 +1219,18 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
   if (order.status === 'fulfilled') return order;
   if (order.status === 'failed') return order;
   if (order.status === 'manual') return order;
+  if (order.status === 'processing') {
+    const processingStarted = Date.parse(order.processingAt || '');
+    if (processingStarted && Date.now() - processingStarted < 5 * 60 * 1000) return order;
+  }
+  order.status = 'processing';
+  order.processingAt = new Date().toISOString();
+  writeData(data);
+
   const session = await retrieveStripeCheckoutSession(sessionId || order.sessionId);
   if (session.payment_status !== 'paid') {
     order.status = 'pending';
+    order.processingAt = '';
     order.sessionId = session.id || order.sessionId;
     writeData(data);
     return order;
@@ -1238,6 +1248,7 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
       order.status = 'manual';
       order.resultType = 'manual';
       order.error = 'Paid order needs manual delivery because inventory is empty.';
+      order.processingAt = '';
       writeData(data);
       return order;
     }
@@ -1245,6 +1256,7 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
     order.resultType = 'single';
     order.resultUrl = url;
     order.fulfilledAt = new Date().toISOString();
+    order.processingAt = '';
     writeData(data);
     return order;
   }
@@ -1256,6 +1268,7 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
     order.status = 'manual';
     order.resultType = 'manual';
     order.error = `Paid order needs manual delivery because available inventory is lower than ${count} reports.`;
+    order.processingAt = '';
     writeData(data);
     return order;
   }
@@ -1272,6 +1285,7 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
   order.resultType = 'bundle';
   order.resultUrl = `${origin}/r/${token}`;
   order.fulfilledAt = new Date().toISOString();
+  order.processingAt = '';
   writeData(data);
   return order;
 }
