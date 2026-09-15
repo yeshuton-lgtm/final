@@ -2989,9 +2989,13 @@ function adminHtml() {
   <script>
     const password = new URLSearchParams(location.search).get('password') || '';
     async function api(path, options = {}) {
+      const headers = {
+        'content-type': 'application/json',
+        ...(options.headers || {})
+      };
       const response = await fetch(path + (path.includes('?') ? '&' : '?') + 'password=' + encodeURIComponent(password), {
-        headers: { 'content-type': 'application/json' },
-        ...options
+        ...options,
+        headers
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Request failed');
@@ -3104,7 +3108,11 @@ function adminHtml() {
     document.getElementById('singleLink').addEventListener('click', async () => {
       if (!confirm('Take 1 available report link from inventory for a single-report sale?')) return;
       try {
-        const data = await api('/api/inventory/single-link', { method: 'POST' });
+        const data = await api('/api/inventory/single-link', {
+          method: 'POST',
+          headers: { 'x-admin-intent': 'single-link' },
+          body: JSON.stringify({ confirm: 'single-link' })
+        });
         const copied = await copyText(data.url);
         document.getElementById('singleResult').innerHTML = 'Single report link: <a href="' + data.url + '" target="_blank" rel="noopener">' + data.url + '</a><br><span class="muted">' + (copied ? 'Copied to clipboard. ' : 'Use Copy link if it was not copied. ') + 'Remaining stock: ' + data.inventory.available + '.</span>';
         const copyButton = document.getElementById('copySingleLink');
@@ -3239,6 +3247,10 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/inventory/single-link') {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    const body = await readBody(req);
+    if (req.headers['x-admin-intent'] !== 'single-link' || body.confirm !== 'single-link') {
+      return sendJson(res, 400, { error: 'Single-link inventory extraction requires explicit admin confirmation.' });
+    }
     const url = await assignSingleInventoryLink(data);
     if (!url) return sendJson(res, 400, { error: 'No available inventory links left.' });
     writeData(data);
