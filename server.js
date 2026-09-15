@@ -303,9 +303,22 @@ function extractWindowCodesValue(html, key) {
     .trim();
 }
 
+function extractAssignedDataValue(html, key) {
+  const match = String(html || '').match(new RegExp(`this\\.data\\.${key}\\s*=\\s*("(?:\\\\.|[^"])*"|'(?:\\\\.|[^'])*')`, 'i'));
+  if (!match) return '';
+  const raw = match[1].slice(1, -1);
+  return raw
+    .replace(/\\(["'\\/bfnrt])/g, (full, char) => {
+      const map = { b: '\b', f: '\f', n: '\n', r: '\r', t: '\t' };
+      return map[char] || char;
+    })
+    .replace(/\\u([0-9a-f]{4})/gi, (full, code) => String.fromCharCode(Number.parseInt(code, 16)))
+    .trim();
+}
+
 function extractReportDetails(html) {
-  const appVehicle = extractWindowCodesValue(html, 'vehicle');
-  const appVin = extractWindowCodesValue(html, 'vin').toUpperCase();
+  const appVehicle = extractWindowCodesValue(html, 'vehicle') || extractAssignedDataValue(html, 'model');
+  const appVin = (extractWindowCodesValue(html, 'vin') || extractAssignedDataValue(html, 'vin')).toUpperCase();
   if (appVehicle || appVin) {
     return {
       vehicle: cleanVehicleLine(appVehicle),
@@ -476,12 +489,32 @@ async function decodeVehicleDetailsFromVin(vin) {
 async function fillVehicleFromReport(report) {
   if (!report.used || report.vehicle) return false;
   if (isServerSideAutoExtractionUnsupported(report.url)) {
-    report.vinMismatch = false;
-    report.vinMismatchMessage = '';
-    const note = await decodeVehicleFromVin(report.searchKey);
-    if (!note) return false;
-    report.vehicle = note;
-    return true;
+    try {
+      const html = await fetchText(report.url);
+      const details = extractReportDetails(html);
+      const note = formatVehicleNote(details);
+      if (note && !isKnownVinfaxPlaceholder(note) && details.vin !== VINFAX_PLACEHOLDER_VIN) {
+        report.vehicle = note;
+        if (details.vin && !report.searchKey) {
+          report.searchDisplay = details.vin;
+          report.searchKey = normalizeSearchKey(details.vin);
+        }
+        report.vinMismatch = false;
+        report.vinMismatchMessage = '';
+        return true;
+      }
+    } catch (error) {
+      console.log(`Vinfax note fetch failed for ${report.url}: ${error.message}`);
+    }
+    if (report.searchKey) {
+      report.vinMismatch = false;
+      report.vinMismatchMessage = '';
+      const note = await decodeVehicleFromVin(report.searchKey);
+      if (!note) return false;
+      report.vehicle = note;
+      return true;
+    }
+    return false;
   }
   try {
     const html = await fetchText(report.url);
