@@ -2056,8 +2056,6 @@ function landingHtml() {
     .history-risk p { margin: 0 0 16px; color: #5b6678; line-height: 1.58; max-width: 920px; }
     .risk-story { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
     .risk-card { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; box-shadow: 0 10px 28px rgba(16,24,40,.06); }
-    .risk-card strong { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; color: #fff; background: #252525; font-size: 15px; }
-    .risk-card.scam strong { background: #8a3329; }
     .risk-card img { display: block; width: 100%; height: 210px; object-fit: cover; background: #eef2f6; }
     .risk-card span { display: block; padding: 11px 14px; color: #5b6678; font-size: 13px; line-height: 1.4; }
     .trust-icons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 0 20px 20px; }
@@ -2367,12 +2365,10 @@ function landingHtml() {
           <p id="prepRiskCopy">Used vehicles can look clean after repairs, even when a previous record shows accident damage, total loss, salvage, auction sale, mileage issues, or title problems. Before you buy, a full history report helps you review critical records that sellers may not mention.</p>
           <div class="risk-story">
             <div class="risk-card">
-              <strong><span>1 month before sale</span><span>Damage history</span></strong>
               <img src="/assets/risk-before-sale.png" alt="Example of damage records before a vehicle sale" />
               <span>Damage or auction photos can reveal what the listing does not show.</span>
             </div>
             <div class="risk-card scam">
-              <strong><span>On sale</span><span>Buyer risk alert</span></strong>
               <img src="/assets/risk-on-sale.png" alt="Example of cleaned vehicle listing photos after repair" />
               <span>The same vehicle can appear clean later. Check the report before sending money or meeting the seller.</span>
             </div>
