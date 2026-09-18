@@ -3668,7 +3668,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const pathname = url.pathname;
 
-    if (req.method === 'POST' && pathname === '/stripe-webhook') {
+    if (req.method === 'POST' && ['/stripe-webhook', '/webhook', '/api/stripe-webhook'].includes(pathname)) {
       return await handleStripeWebhook(req, res);
     }
 
