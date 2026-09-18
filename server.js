@@ -24,6 +24,7 @@ const STRIPE_MONTHLY_PRICE_ID = process.env.STRIPE_MONTHLY_PRICE_ID || '';
 const STRIPE_STARTER_PRICE_ID = process.env.STRIPE_STARTER_PRICE_ID || '';
 const STRIPE_PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID || '';
 const STRIPE_PREMIUM_PRICE_ID = process.env.STRIPE_PREMIUM_PRICE_ID || '';
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 const orderFulfillmentLocks = new Map();
 
 const PLAN_DEFINITIONS = {
@@ -1058,6 +1059,41 @@ function readBody(req) {
   });
 }
 
+function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (chunk) => {
+      chunks.push(chunk);
+      size += chunk.length;
+      if (size > 1_000_000) {
+        req.destroy();
+        reject(new Error('Body too large'));
+      }
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+
+function verifyStripeWebhookSignature(rawBody, signatureHeader) {
+  if (!STRIPE_WEBHOOK_SECRET) return false;
+  const parts = String(signatureHeader || '').split(',').reduce((memo, part) => {
+    const index = part.indexOf('=');
+    if (index !== -1) memo[part.slice(0, index)] = part.slice(index + 1);
+    return memo;
+  }, {});
+  if (!parts.t || !parts.v1) return false;
+  const signedPayload = `${parts.t}.${rawBody}`;
+  const expected = crypto
+    .createHmac('sha256', STRIPE_WEBHOOK_SECRET)
+    .update(signedPayload)
+    .digest('hex');
+  const expectedBuffer = Buffer.from(expected, 'hex');
+  const actualBuffer = Buffer.from(parts.v1, 'hex');
+  return expectedBuffer.length === actualBuffer.length && crypto.timingSafeEqual(expectedBuffer, actualBuffer);
+}
+
 function getAccountBundles(data, bundle) {
   if (!bundle.accountKey) return [bundle];
   return Object.values(data.bundles).filter((item) => item.accountKey === bundle.accountKey);
@@ -1342,19 +1378,7 @@ function removeInventoryItems(data, ids) {
   return { removed: before - data.inventory.length, skipped };
 }
 
-async function fulfillPaidOrder(req, data, order, sessionId) {
-  if (order.status === 'fulfilled') return order;
-  if (order.status === 'failed') return order;
-  if (order.status === 'manual') return order;
-  if (order.status === 'processing') {
-    const processingStarted = Date.parse(order.processingAt || '');
-    if (processingStarted && Date.now() - processingStarted < 5 * 60 * 1000) return order;
-  }
-  order.status = 'processing';
-  order.processingAt = new Date().toISOString();
-  writeData(data);
-
-  const session = await retrieveStripeCheckoutSession(sessionId || order.sessionId);
+async function fulfillOrderFromPaidSession(req, data, order, session) {
   if (session.payment_status !== 'paid') {
     order.status = 'pending';
     order.processingAt = '';
@@ -1417,6 +1441,22 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
   return order;
 }
 
+async function fulfillPaidOrder(req, data, order, sessionId) {
+  if (order.status === 'fulfilled') return order;
+  if (order.status === 'failed') return order;
+  if (order.status === 'manual') return order;
+  if (order.status === 'processing') {
+    const processingStarted = Date.parse(order.processingAt || '');
+    if (processingStarted && Date.now() - processingStarted < 5 * 60 * 1000) return order;
+  }
+  order.status = 'processing';
+  order.processingAt = new Date().toISOString();
+  writeData(data);
+
+  const session = await retrieveStripeCheckoutSession(sessionId || order.sessionId);
+  return fulfillOrderFromPaidSession(req, data, order, session);
+}
+
 async function fulfillPaidOrderOnce(req, orderId, sessionId) {
   if (orderFulfillmentLocks.has(orderId)) {
     return orderFulfillmentLocks.get(orderId);
@@ -1433,6 +1473,34 @@ async function fulfillPaidOrderOnce(req, orderId, sessionId) {
   } finally {
     orderFulfillmentLocks.delete(orderId);
   }
+}
+
+async function handleStripeWebhook(req, res) {
+  const rawBody = await readRawBody(req);
+  if (!verifyStripeWebhookSignature(rawBody, req.headers['stripe-signature'])) {
+    return sendJson(res, 400, { error: 'Invalid Stripe webhook signature.' });
+  }
+  const event = JSON.parse(rawBody);
+  if (event.type !== 'checkout.session.completed' && event.type !== 'checkout.session.async_payment_succeeded') {
+    return sendJson(res, 200, { received: true });
+  }
+
+  const session = event.data && event.data.object;
+  const orderId = session && session.metadata && session.metadata.order_id;
+  if (!orderId) return sendJson(res, 200, { received: true, skipped: 'missing order id' });
+
+  const data = readData();
+  const order = data.orders[orderId] || Object.values(data.orders || {}).find((item) => item.sessionId === session.id);
+  if (!order) return sendJson(res, 200, { received: true, skipped: 'order not found' });
+  if (order.status === 'fulfilled' || order.status === 'failed' || order.status === 'manual') {
+    return sendJson(res, 200, { received: true, status: order.status });
+  }
+
+  order.status = 'processing';
+  order.processingAt = new Date().toISOString();
+  writeData(data);
+  await fulfillOrderFromPaidSession(req, data, order, session);
+  return sendJson(res, 200, { received: true, status: order.status });
 }
 
 function findExistingSearch(data, bundle, rawSearchKey) {
@@ -3599,6 +3667,10 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const pathname = url.pathname;
+
+    if (req.method === 'POST' && pathname === '/stripe-webhook') {
+      return await handleStripeWebhook(req, res);
+    }
 
     if (pathname === '/') {
       return sendHtml(res, landingHtml());
