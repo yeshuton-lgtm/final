@@ -1253,56 +1253,12 @@ function addInventoryLinks(data, rawLinks) {
   return { added, skipped };
 }
 
-async function verifyInventoryLinkAvailable(url) {
-  const cleanUrl = extractFirstUrl(url) || url;
-  if (!cleanUrl) return { usable: false, remove: false, reason: 'empty url' };
-  try {
-    const response = await fetch(cleanUrl, {
-      redirect: 'follow',
-      headers: { 'user-agent': 'Mozilla/5.0 VehicleReportNow inventory verifier' }
-    });
-    const html = await response.text();
-    if (cleanUrl.includes('carfax.codes')) {
-      const statusMatch = html.match(/codeStatus:\s*"([^"]+)"/);
-      const codeStatus = statusMatch ? statusMatch[1] : '';
-      if (codeStatus === 'ACTIVE') return { usable: true, remove: false, reason: 'carfax active' };
-      if (codeStatus === 'INACTIVE') return { usable: false, remove: true, reason: 'carfax inactive' };
-      return { usable: false, remove: false, reason: 'carfax status unknown' };
-    }
-    if (cleanUrl.includes('vinfax.co')) {
-      const applyMatch = html.match(/apply:\s*'([^']+)'/);
-      const apply = applyMatch ? applyMatch[1] : '';
-      if (apply === '0') return { usable: true, remove: false, reason: 'vinfax unused' };
-      if (apply === '1') return { usable: false, remove: true, reason: 'vinfax used' };
-      return { usable: false, remove: false, reason: 'vinfax status unknown' };
-    }
-    return { usable: true, remove: false, reason: 'unknown provider' };
-  } catch (error) {
-    return { usable: false, remove: false, reason: error.message || 'verification failed' };
-  }
-}
-
 async function assignInventory(data, count, token) {
   const available = data.inventory.filter((item) => item.status === 'available');
   if (available.length < count) return null;
-  const verified = [];
-  const removeIds = new Set();
-  for (const item of available) {
-    item.url = extractFirstUrl(item.url) || item.url;
-    const check = await verifyInventoryLinkAvailable(item.url);
-    if (check.usable) {
-      verified.push(item);
-      if (verified.length >= count) break;
-      continue;
-    }
-    if (check.remove) removeIds.add(item.id);
-  }
-  if (removeIds.size) {
-    data.inventory = data.inventory.filter((item) => !removeIds.has(item.id));
-  }
-  if (verified.length < count) return null;
   const now = new Date().toISOString();
-  return verified.map((item) => {
+  return available.slice(0, count).map((item) => {
+    item.url = extractFirstUrl(item.url) || item.url;
     item.status = 'assigned';
     item.assignedAt = now;
     item.assignedBundle = token;
@@ -1441,7 +1397,7 @@ async function fulfillOrderFromPaidSession(req, data, order, session) {
   return order;
 }
 
-async function fulfillPaidOrder(req, data, order, sessionId) {
+async function fulfillPaidOrder(req, data, order, sessionId, providedSession = null) {
   if (order.status === 'fulfilled') return order;
   if (order.status === 'failed') return order;
   if (order.status === 'manual') return order;
@@ -1453,11 +1409,11 @@ async function fulfillPaidOrder(req, data, order, sessionId) {
   order.processingAt = new Date().toISOString();
   writeData(data);
 
-  const session = await retrieveStripeCheckoutSession(sessionId || order.sessionId);
+  const session = providedSession || await retrieveStripeCheckoutSession(sessionId || order.sessionId);
   return fulfillOrderFromPaidSession(req, data, order, session);
 }
 
-async function fulfillPaidOrderOnce(req, orderId, sessionId) {
+async function fulfillPaidOrderOnce(req, orderId, sessionId, providedSession = null) {
   if (orderFulfillmentLocks.has(orderId)) {
     return orderFulfillmentLocks.get(orderId);
   }
@@ -1465,7 +1421,7 @@ async function fulfillPaidOrderOnce(req, orderId, sessionId) {
     const data = readData();
     const order = data.orders[orderId];
     if (!order) return null;
-    return fulfillPaidOrder(req, data, order, sessionId);
+    return fulfillPaidOrder(req, data, order, sessionId, providedSession);
   })();
   orderFulfillmentLocks.set(orderId, promise);
   try {
@@ -1490,17 +1446,13 @@ async function handleStripeWebhook(req, res) {
   if (!orderId) return sendJson(res, 200, { received: true, skipped: 'missing order id' });
 
   const data = readData();
-  const order = data.orders[orderId] || Object.values(data.orders || {}).find((item) => item.sessionId === session.id);
-  if (!order) return sendJson(res, 200, { received: true, skipped: 'order not found' });
-  if (order.status === 'fulfilled' || order.status === 'failed' || order.status === 'manual') {
-    return sendJson(res, 200, { received: true, status: order.status });
-  }
+  const resolvedOrderId = data.orders[orderId]
+    ? orderId
+    : Object.keys(data.orders || {}).find((id) => data.orders[id].sessionId === session.id);
+  if (!resolvedOrderId) return sendJson(res, 200, { received: true, skipped: 'order not found' });
 
-  order.status = 'processing';
-  order.processingAt = new Date().toISOString();
-  writeData(data);
-  await fulfillOrderFromPaidSession(req, data, order, session);
-  return sendJson(res, 200, { received: true, status: order.status });
+  const order = await fulfillPaidOrderOnce(req, resolvedOrderId, session.id, session);
+  return sendJson(res, 200, { received: true, status: order ? order.status : 'missing' });
 }
 
 function findExistingSearch(data, bundle, rawSearchKey) {
