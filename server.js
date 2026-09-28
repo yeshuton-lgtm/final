@@ -2405,41 +2405,15 @@ function landingHtml() {
 
     <section class="shell report-preview-section">
       <div class="section-head">
-        <h2>Preview A Report Page</h2>
-        <p>Review a sample report layout below. Your purchased report opens as a direct report link, then your portal saves it for reopening.</p>
+        <h2>Preview A CARFAX Report</h2>
+        <p>2017 Ford F-150 XLT &middot; Full six-page sample report.</p>
       </div>
       <div class="report-viewer" aria-label="Scrollable vehicle history report preview">
         <div class="browser-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>sample report preview</span></div>
-        <div class="report-shell">
-          <div class="report-top"><b>Vehicle History Report</b><span>Sample preview</span></div>
-          <div class="report-body">
-            <div class="report-title">
-              <h3>2023 Tesla Model 3</h3>
-              <p>VIN 5YJ3E1EA7PF472486 - Electric sedan - Sample saved report view</p>
-            </div>
-            <div class="report-alerts">
-              <div class="report-alert"><strong>1</strong><span>Owner record found</span></div>
-              <div class="report-alert"><strong>12</strong><span>Service and registration records</span></div>
-              <div class="report-alert"><strong>0</strong><span>Accident records shown in this sample</span></div>
-            </div>
-            <div class="report-section">
-              <h4>Vehicle Details</h4>
-              <div class="report-row"><span>Make / Model</span><strong>2023 Tesla Model 3</strong></div>
-              <div class="report-row"><span>Body Style</span><strong>Sedan 4-DR</strong></div>
-              <div class="report-row"><span>Fuel Type</span><strong>Electric</strong></div>
-              <div class="report-row"><span>Market Use</span><strong>Personal vehicle</strong></div>
-            </div>
-            <div class="report-section">
-              <h4>Sample History Highlights</h4>
-              <div class="report-timeline">
-                <div class="timeline-item"><span>2023</span><div><b>First registration</b><br />Vehicle registered after original sale.</div></div>
-                <div class="timeline-item"><span>2024</span><div><b>Service record</b><br />Maintenance and inspection history added to the report.</div></div>
-                <div class="timeline-item"><span>2026</span><div><b>Current report</b><br />Title, mileage, ownership, service, and event records are organized in one page.</div></div>
-              </div>
-            </div>
-          </div>
+        <div class="report-shell" role="region" aria-label="Six-page CARFAX sample report" tabindex="0" style="overflow:auto">
+          ${Array.from({ length: 6 }, (_, i) => '<img src="/assets/sample-f150/page-' + (i + 1) + '.jpg" alt="CARFAX report for 2017 Ford F-150 XLT, page ' + (i + 1) + ' of 6" width="1237" height="1600" loading="lazy" style="display:block;width:100%;height:auto;border-bottom:1px solid #ddd" />').join('')}
         </div>
-        <div class="report-open-row"><span>Scroll the sample preview above</span><a href="#pricing">Get your report</a></div>
+        <div class="report-open-row"><span>2017 Ford F-150 XLT &middot; 6 pages</span><a href="/assets/sample-f150/report.pdf" target="_blank" rel="noopener">Open full PDF</a></div>
       </div>
     </section>
 
@@ -3720,6 +3694,21 @@ const server = http.createServer(async (req, res) => {
         if (updatedOrder) Object.assign(order, updatedOrder);
       }
       return sendHtml(res, orderHtml(order));
+    }
+
+    const sampleAssetMatch = pathname.match(/^\/assets\/sample-f150\/(report\.pdf|page-[1-6]\.jpg)$/);
+    if (sampleAssetMatch) {
+      const filePath = path.join(__dirname, 'public', 'sample-f150', sampleAssetMatch[1]);
+      if (!fs.existsSync(filePath)) return notFound(res);
+      const isPdf = sampleAssetMatch[1] === 'report.pdf';
+      res.writeHead(200, {
+        'content-type': isPdf ? 'application/pdf' : 'image/jpeg',
+        'content-length': fs.statSync(filePath).size,
+        'cache-control': 'public, max-age=3600',
+        ...(isPdf ? { 'content-disposition': 'inline; filename="Carfax_1FTEW1EG8HFA45373.pdf"' } : {})
+      });
+      if (req.method === 'HEAD') return res.end();
+      return fs.createReadStream(filePath).pipe(res);
     }
 
     if (pathname === '/assets/car-fox.jpg') {
