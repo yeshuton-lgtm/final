@@ -2301,7 +2301,7 @@ function landingHtml() {
           <div class="search-tabs"><button class="active" id="vinTab" type="button">Enter VIN</button><button id="plateTab" type="button">License Plate</button></div>
           <label id="heroSearchLabel" for="heroVin">Preview vehicle information</label>
           <div class="vin-search-row">
-            <input id="heroVin" value="5YJ3E1EA7PF472486" maxlength="17" autocomplete="off" placeholder="Enter 17-character VIN" />
+            <input id="heroVin" value="1FTEW1EG8HFA45373" maxlength="17" autocomplete="off" placeholder="Enter 17-character VIN" />
             <select id="heroState" aria-label="State"><option value="CA">CA</option><option value="TX">TX</option><option value="FL">FL</option><option value="NY">NY</option><option value="NC">NC</option><option value="GA">GA</option><option value="AZ">AZ</option><option value="NV">NV</option><option value="WA">WA</option></select>
             <button class="button" id="heroVinButton" type="button">Check My VIN</button>
           </div>
@@ -2435,7 +2435,7 @@ function landingHtml() {
             <div class="mini-stat"><b id="demoLeft">6</b><span>Remaining</span></div>
           </div>
           <div class="demo-controls">
-            <input id="demoVin" value="5YJ3E1EA7PF472486" aria-label="Demo VIN" />
+            <input id="demoVin" value="1FTEW1EG8HFA45373" aria-label="Demo VIN" />
             <button class="button" id="demoRun" type="button">Run Demo Check</button>
           </div>
           <div id="demoNotice" class="demo-note ok"></div>
@@ -2540,8 +2540,8 @@ function landingHtml() {
         <div class="sample-report">
           <div class="sample-report-head"><b>Sample Vehicle History Report</b><span>Live report page</span></div>
           <div class="sample-report-body">
-            <div class="sample-line"><span>Vehicle</span><strong>2023 Tesla Model 3</strong></div>
-            <div class="sample-line"><span>VIN</span><strong>5YJ3E1EA7PF472486</strong></div>
+            <div class="sample-line"><span>Vehicle</span><strong>2017 Ford F-150 XLT</strong></div>
+            <div class="sample-line"><span>VIN</span><strong>1FTEW1EG8HFA45373</strong></div>
             <div class="sample-line"><span>Records</span><strong>Title, mileage, ownership, service history</strong></div>
             <div class="sample-line"><span>Portal</span><strong>Saved automatically for reopening</strong></div>
           </div>
@@ -2786,7 +2786,7 @@ function landingHtml() {
     updateCustomCheckout();
 
     const toastStates = ['California', 'Texas', 'Florida', 'North Carolina', 'Arizona', 'Georgia', 'Nevada', 'New York'];
-    const toastVehicles = ['2022 Chevrolet Silverado', '2021 Toyota Camry', '2019 Honda Accord', '2020 Ford F-150', '2023 Tesla Model 3', '2018 BMW 3 Series', '2021 Nissan Rogue'];
+    const toastVehicles = ['2022 Chevrolet Silverado', '2021 Toyota Camry', '2019 Honda Accord', '2020 Ford F-150', '2017 Ford F-150 XLT', '2018 BMW 3 Series', '2021 Nissan Rogue'];
     function showLiveToast() {
       const toast = document.getElementById('liveToast');
       const state = toastStates[Math.floor(Math.random() * toastStates.length)];
@@ -2803,7 +2803,7 @@ function landingHtml() {
       { slot: 1, vin: '2C3CDXBG8KH517831', note: '2019 Dodge Charger SXT', used: true },
       { slot: 2, vin: '4T1BF3EK2AU060791', note: '2010 Toyota Camry', used: true },
       { slot: 3, vin: 'WBA7T2C04NCH22042', note: '2022 BMW 7 Series 740i', used: true },
-      { slot: 4, vin: '5YJ3E1EA7PF472486', note: '2023 Tesla Model 3', used: true }
+      { slot: 4, vin: '1FTEW1EG8HFA45373', note: '2017 Ford F-150 XLT', used: true }
     ];
     let total = 10;
     function renderDemo(message, type = 'ok') {
