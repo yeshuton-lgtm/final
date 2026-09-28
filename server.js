@@ -2405,15 +2405,41 @@ function landingHtml() {
 
     <section class="shell report-preview-section">
       <div class="section-head">
-        <h2>Preview A Real Report Page</h2>
-        <p>Scroll the live report example below. Your purchased report opens in the same direct report format, then your portal saves it for reopening.</p>
+        <h2>Preview A Report Page</h2>
+        <p>Review a sample report layout below. Your purchased report opens as a direct report link, then your portal saves it for reopening.</p>
       </div>
       <div class="report-viewer" aria-label="Scrollable vehicle history report preview">
-        <div class="browser-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>live report preview</span></div>
+        <div class="browser-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>sample report preview</span></div>
         <div class="report-shell">
-          <iframe class="report-frame" title="Live CARFAX report preview" src="https://carfax.codes/view/c933291c-afbe-4d67-8790-61aa55d39fa0"></iframe>
+          <div class="report-top"><b>Vehicle History Report</b><span>Sample preview</span></div>
+          <div class="report-body">
+            <div class="report-title">
+              <h3>2023 Tesla Model 3</h3>
+              <p>VIN 5YJ3E1EA7PF472486 - Electric sedan - Sample saved report view</p>
+            </div>
+            <div class="report-alerts">
+              <div class="report-alert"><strong>1</strong><span>Owner record found</span></div>
+              <div class="report-alert"><strong>12</strong><span>Service and registration records</span></div>
+              <div class="report-alert"><strong>0</strong><span>Accident records shown in this sample</span></div>
+            </div>
+            <div class="report-section">
+              <h4>Vehicle Details</h4>
+              <div class="report-row"><span>Make / Model</span><strong>2023 Tesla Model 3</strong></div>
+              <div class="report-row"><span>Body Style</span><strong>Sedan 4-DR</strong></div>
+              <div class="report-row"><span>Fuel Type</span><strong>Electric</strong></div>
+              <div class="report-row"><span>Market Use</span><strong>Personal vehicle</strong></div>
+            </div>
+            <div class="report-section">
+              <h4>Sample History Highlights</h4>
+              <div class="report-timeline">
+                <div class="timeline-item"><span>2023</span><div><b>First registration</b><br />Vehicle registered after original sale.</div></div>
+                <div class="timeline-item"><span>2024</span><div><b>Service record</b><br />Maintenance and inspection history added to the report.</div></div>
+                <div class="timeline-item"><span>2026</span><div><b>Current report</b><br />Title, mileage, ownership, service, and event records are organized in one page.</div></div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="report-open-row"><span>Scroll the live report preview above</span><a href="https://carfax.codes/view/c933291c-afbe-4d67-8790-61aa55d39fa0" target="_blank" rel="noopener">Open full report</a></div>
+        <div class="report-open-row"><span>Scroll the sample preview above</span><a href="#pricing">Get your report</a></div>
       </div>
     </section>
 
