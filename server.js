@@ -1410,7 +1410,13 @@ async function fulfillPaidOrder(req, data, order, sessionId, providedSession = n
   writeData(data);
 
   const session = providedSession || await retrieveStripeCheckoutSession(sessionId || order.sessionId);
-  return fulfillOrderFromPaidSession(req, data, order, session);
+  const latest = readData();
+  const current = latest.orders[order.id];
+  if (!current || ['fulfilled', 'failed', 'manual'].includes(current.status)) return current;
+  if (session.id !== current.sessionId || session.metadata?.order_id !== current.id) {
+    throw new Error('Payment session does not belong to this order.');
+  }
+  return fulfillOrderFromPaidSession(req, latest, current, session);
 }
 
 async function fulfillPaidOrderOnce(req, orderId, sessionId, providedSession = null) {
@@ -2898,6 +2904,9 @@ function savedOrdersHtml(orders) {
 }
 
 function orderHtml(order) {
+  if (order.resultType === 'manual-replacement') {
+    return savedOrdersHtml([]).replace('No saved orders were found in this browser.', 'Your replacement report was delivered separately by support. The original link has been withdrawn. Contact support to reopen your replacement.');
+  }
   const fulfilled = order.status === 'fulfilled';
   const failed = order.status === 'failed';
   const manual = order.status === 'manual';
@@ -3269,6 +3278,41 @@ function adminHtml() {
 
 async function handleApi(req, res, pathname) {
   const data = readData();
+  if (req.method === 'POST' && pathname === '/api/inventory/return-replaced-single') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    const body = await readBody(req);
+    if (body.confirm !== 'return-replaced-single' || !/^[a-f0-9]{16}$/.test(body.orderId || '')) {
+      return sendJson(res, 400, { error: 'Explicit replaced-order confirmation required.' });
+    }
+    const original = data.orders[body.orderId];
+    const target = original && original.resultUrl;
+    if (!target || target !== body.url || !/^https:\/\/vinfax\.co\/reports\/index\/[A-Z0-9]+$/.test(target)) {
+      return sendJson(res, 409, { error: 'Order report does not match.' });
+    }
+    const html = await fetchText(target);
+    if (!html.includes('x-model="data.vin"') || !/hash:\s*''/.test(html) || !/vin:\s*''/.test(html)) {
+      return sendJson(res, 409, { error: 'Cannot confirm an unused VIN entry page.' });
+    }
+    // Re-read after the external check so concurrent sales are preserved.
+    const latest = readData();
+    const order = latest.orders[body.orderId];
+    const item = latest.inventory.find(item => item.url === target);
+    const otherOrder = Object.values(latest.orders).some(other => other.id !== body.orderId && other.resultUrl === target);
+    const bundled = Object.values(latest.bundles).some(bundle => bundle.reports.some(report => report.url === target));
+    if (!order || order.resultUrl !== target || order.status !== 'fulfilled' || !item || item.status !== 'assigned' || item.assignedBundle !== 'single-sale' || otherOrder || bundled) {
+      return sendJson(res, 409, { error: 'Assignment changed or link has another owner.' });
+    }
+    latest.inventoryReturns = latest.inventoryReturns || [];
+    latest.inventoryReturns.push({ itemId: item.id, url: target, orderId: order.id, returnedAt: new Date().toISOString(), reason: 'Customer received replacement manually; unused original returned by admin.' });
+    order.resultUrl = '';
+    order.resultType = 'manual-replacement';
+    item.status = 'available';
+    item.assignedAt = '';
+    item.assignedBundle = '';
+    writeData(latest);
+    return sendJson(res, 200, { returned: 1, inventory: inventorySummary(latest) });
+  }
 
   if (req.method === 'GET' && pathname === '/api/decode-vin') {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
