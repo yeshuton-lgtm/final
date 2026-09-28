@@ -3335,6 +3335,23 @@ async function handleApi(req, res, pathname) {
     return sendJson(res, 200, { orders: recentOrders(data, 20) });
   }
 
+  if (req.method === 'GET' && pathname === '/api/admin/order-audit') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    const order = data.orders[requestUrl.searchParams.get('orderId')];
+    if (!order || !order.sessionId) return sendJson(res, 404, { error: 'Order session not found.' });
+    const session = await retrieveStripeCheckoutSession(order.sessionId);
+    return sendJson(res, 200, {
+      orderId: order.id,
+      status: order.status,
+      resultUrl: order.resultUrl,
+      paymentStatus: session.payment_status,
+      sessionOrderId: session.metadata?.order_id || '',
+      legacyFulfillmentUrl: session.metadata?.fulfillment_url || '',
+      legacyFulfilledAt: session.metadata?.fulfilled_at || ''
+    });
+  }
+
   if (req.method === 'GET' && pathname === '/api/inventory/recent') {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
