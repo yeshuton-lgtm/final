@@ -2286,7 +2286,7 @@ function landingHtml() {
   <header class="shell topbar">
     <a class="brand" href="/"><span class="brand-mark"><img src="/assets/fox-head.jpg" alt="Cheaper Carfax Report" /></span><span>Cheaper Carfax Report</span></a>
     <nav class="nav"><a href="#demo">Portal Demo</a><a href="#pricing">Pricing</a><a href="#membership">Membership</a><a href="#comparison">Compare</a></nav>
-    <a class="button secondary" href="#pricing">View Plans</a>
+    <a class="button secondary" href="/my-reports">My Reports</a>
   </header>
 
   <main>
@@ -2880,6 +2880,23 @@ function checkoutPendingHtml(plan, detail = '') {
 </html>`;
 }
 
+function savedOrderIds(req) {
+  const match = String(req.headers.cookie || '').match(/(?:^|;\s*)report_orders=([^;]*)/);
+  return match ? [...new Set(match[1].split('.').filter(id => /^[a-f0-9]{16}$/.test(id)))].slice(0, 10) : [];
+}
+
+function rememberOrder(req, res, orderId) {
+  const ids = [orderId, ...savedOrderIds(req).filter(id => id !== orderId)].slice(0, 10);
+  res.setHeader('Set-Cookie', 'report_orders=' + ids.join('.') + '; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax' + (publicOrigin(req).startsWith('https:') ? '; Secure' : ''));
+}
+
+function savedOrdersHtml(orders) {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>My Reports | Cheaper Carfax Report</title>
+  <style>body{font:16px Arial,sans-serif;color:#18212f;background:#f5f7fa;margin:0}main{max-width:680px;margin:40px auto;padding:24px}li{background:white;border:1px solid #d9e0ea;border-radius:6px;padding:18px;margin:12px 0;overflow-wrap:anywhere}ul{list-style:none;padding:0}a{color:#185bd8}p{line-height:1.6}</style></head><body><main><a href="/">Home</a><h1>My Reports</h1>
+  ${orders.length ? '<ul>' + orders.map(order => '<li><a href="/order/' + order.id + '">' + htmlAttr(planLabel(order.plan, order)) + '</a><p>' + htmlAttr(order.createdAt) + ' &middot; ' + htmlAttr(order.status === 'fulfilled' ? 'Report ready' : order.status === 'pending' ? 'Check payment status' : order.status) + '</p></li>').join('') + '</ul>' : '<p>No saved orders were found in this browser.</p>'}
+  <p>Orders saved on this browser appear here. If you paid in Facebook or another browser, open this page there. For help finding a missing order, email <a href="mailto:jojicookin@gmail.com">jojicookin@gmail.com</a> with your checkout email and payment date. Please do not pay again for the same order.</p></main></body></html>`;
+}
+
 function orderHtml(order) {
   const fulfilled = order.status === 'fulfilled';
   const failed = order.status === 'failed';
@@ -2916,7 +2933,23 @@ function orderHtml(order) {
     <h1>${title}</h1>
     <p>${htmlAttr(message)}</p>
     ${action}
+    <p>Order: <strong>${htmlAttr(order.id)}</strong></p>
+    <button class="button" type="button" id="copyOrder">Copy order link</button>
+    <p id="copyStatus" role="status"></p>
+    <p><a href="/my-reports">My Reports</a> &middot; <a href="mailto:jojicookin@gmail.com?subject=Order%20${htmlAttr(order.id)}">Get help with this order</a></p>
+    <p>Keep your order link to reopen your report, including outside the Facebook browser.</p>
   </main>
+  <script>
+    document.getElementById('copyOrder').addEventListener('click', async function () {
+      const link = location.origin + location.pathname;
+      try {
+        await navigator.clipboard.writeText(link);
+        document.getElementById('copyStatus').textContent = 'Order link copied.';
+      } catch (_) {
+        document.getElementById('copyStatus').textContent = link;
+      }
+    });
+  </script>
 </body>
 </html>`;
 }
@@ -3666,7 +3699,10 @@ const server = http.createServer(async (req, res) => {
           const session = await createStripeCheckoutSession(req, order);
           order.sessionId = session.id || '';
           writeData(data);
-          if (session && session.url) return redirect(res, session.url);
+          if (session && session.url) {
+            rememberOrder(req, res, orderId);
+            return redirect(res, session.url);
+          }
           order.error = 'Stripe did not return a checkout URL.';
           writeData(data);
         } catch (error) {
@@ -3683,11 +3719,19 @@ const server = http.createServer(async (req, res) => {
       return sendHtml(res, checkoutPendingHtml(plan));
     }
 
+    if (req.method === 'GET' && pathname === '/my-reports') {
+      res.setHeader('Cache-Control', 'private, no-store');
+      const data = readData();
+      return sendHtml(res, savedOrdersHtml(savedOrderIds(req).map(id => data.orders[id]).filter(Boolean)));
+    }
+
     const orderMatch = pathname.match(/^\/order\/([a-f0-9]{16})$/);
     if (req.method === 'GET' && orderMatch) {
       const data = readData();
       const order = data.orders[orderMatch[1]];
       if (!order) return notFound(res);
+      res.setHeader('Cache-Control', 'private, no-store');
+      rememberOrder(req, res, order.id);
       const sessionId = url.searchParams.get('session_id') || order.sessionId;
       if (sessionId && order.status !== 'fulfilled' && order.status !== 'failed' && STRIPE_SECRET_KEY) {
         const updatedOrder = await fulfillPaidOrderOnce(req, order.id, sessionId);
