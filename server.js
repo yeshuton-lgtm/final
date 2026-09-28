@@ -3352,6 +3352,31 @@ async function handleApi(req, res, pathname) {
     });
   }
 
+  if (req.method === 'GET' && pathname === '/api/admin/sales-origin-audit') {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
+    const since = Math.floor(Date.now() / 1000) - 30 * 86400;
+    const counts = { main: 0, legacy: 0, unknown: 0 };
+    const legacy = [];
+    let cursor = '', complete = false, scanned = 0;
+    for (let page = 0; page < 20; page++) {
+      const query = new URLSearchParams({ limit: '100', 'created[gte]': String(since) });
+      if (cursor) query.set('starting_after', cursor);
+      const batch = await stripeRequest('GET', '/v1/checkout/sessions?' + query);
+      for (const session of batch.data) {
+        scanned++;
+        if (session.payment_status !== 'paid') continue;
+        const metadata = session.metadata || {};
+        const source = metadata.order_id ? 'main' : metadata.reportType || metadata.fulfillment_owner === 'vehicle-report-now' || /vehiclereportnow\.online/.test(session.success_url || '') ? 'legacy' : 'unknown';
+        counts[source]++;
+        if (source === 'legacy') legacy.push({ created: session.created, amount: session.amount_total, currency: session.currency, plan: metadata.reportType || '', mode: session.mode });
+      }
+      if (!batch.has_more) { complete = true; break; }
+      cursor = batch.data[batch.data.length - 1].id;
+    }
+    return sendJson(res, 200, { since, complete, scanned, paidOrders: counts, legacy });
+  }
+
   if (req.method === 'GET' && pathname === '/api/inventory/recent') {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
