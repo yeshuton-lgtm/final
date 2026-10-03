@@ -5,7 +5,8 @@
   "description": "Customer-facing vehicle report bundle server",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node tests/fulfillment.cjs"
   },
   "engines": {
     "node": ">=20"

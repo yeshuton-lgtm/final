@@ -2292,7 +2292,7 @@ function landingHtml() {
   <header class="shell topbar">
     <a class="brand" href="/"><span class="brand-mark"><img src="/assets/fox-head.jpg" alt="Cheaper Carfax Report" /></span><span>Cheaper Carfax Report</span></a>
     <nav class="nav"><a href="#demo">Portal Demo</a><a href="#pricing">Pricing</a><a href="#membership">Membership</a><a href="#comparison">Compare</a></nav>
-    <a class="button secondary" href="/my-reports">My Reports</a>
+    <a class="button secondary" href="#pricing">View Plans</a>
   </header>
 
   <main>
@@ -2886,30 +2886,10 @@ function checkoutPendingHtml(plan, detail = '') {
 </html>`;
 }
 
-function savedOrderIds(req) {
-  const match = String(req.headers.cookie || '').match(/(?:^|;\s*)report_orders=([^;]*)/);
-  return match ? [...new Set(match[1].split('.').filter(id => /^[a-f0-9]{16}$/.test(id)))].slice(0, 10) : [];
-}
-
-function rememberOrder(req, res, orderId) {
-  const ids = [orderId, ...savedOrderIds(req).filter(id => id !== orderId)].slice(0, 10);
-  res.setHeader('Set-Cookie', 'report_orders=' + ids.join('.') + '; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax' + (publicOrigin(req).startsWith('https:') ? '; Secure' : ''));
-}
-
-function savedOrdersHtml(orders) {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>My Reports | Cheaper Carfax Report</title>
-  <style>body{font:16px Arial,sans-serif;color:#18212f;background:#f5f7fa;margin:0}main{max-width:680px;margin:40px auto;padding:24px}li{background:white;border:1px solid #d9e0ea;border-radius:6px;padding:18px;margin:12px 0;overflow-wrap:anywhere}ul{list-style:none;padding:0}a{color:#185bd8}p{line-height:1.6}</style></head><body><main><a href="/">Home</a><h1>My Reports</h1>
-  ${orders.length ? '<ul>' + orders.map(order => '<li><a href="/order/' + order.id + '">' + htmlAttr(planLabel(order.plan, order)) + '</a><p>' + htmlAttr(order.createdAt) + ' &middot; ' + htmlAttr(order.status === 'fulfilled' ? 'Report ready' : order.status === 'pending' ? 'Check payment status' : order.status) + '</p></li>').join('') + '</ul>' : '<p>No saved orders were found in this browser.</p>'}
-  <p>Orders saved on this browser appear here. If you paid in Facebook or another browser, open this page there. For help finding a missing order, email <a href="mailto:jojicookin@gmail.com">jojicookin@gmail.com</a> with your checkout email and payment date. Please do not pay again for the same order.</p></main></body></html>`;
-}
-
 function orderHtml(order) {
-  if (order.resultType === 'manual-replacement') {
-    return savedOrdersHtml([]).replace('No saved orders were found in this browser.', 'Your replacement report was delivered separately by support. The original link has been withdrawn. Contact support to reopen your replacement.');
-  }
-  const fulfilled = order.status === 'fulfilled';
+  const manual = order.status === 'manual' || order.resultType === 'manual-replacement';
+  const fulfilled = order.status === 'fulfilled' && !manual;
   const failed = order.status === 'failed';
-  const manual = order.status === 'manual';
   const title = fulfilled ? 'Your report is ready' : manual ? 'Payment received' : failed ? 'Order needs help' : 'Payment is being confirmed';
   const message = fulfilled
     ? (order.resultType === 'single' ? 'Open your report link below.' : 'Open your customer portal link below. Your reports are saved there.')
@@ -2942,23 +2922,7 @@ function orderHtml(order) {
     <h1>${title}</h1>
     <p>${htmlAttr(message)}</p>
     ${action}
-    <p>Order: <strong>${htmlAttr(order.id)}</strong></p>
-    <button class="button" type="button" id="copyOrder">Copy order link</button>
-    <p id="copyStatus" role="status"></p>
-    <p><a href="/my-reports">My Reports</a> &middot; <a href="mailto:jojicookin@gmail.com?subject=Order%20${htmlAttr(order.id)}">Get help with this order</a></p>
-    <p>Keep your order link to reopen your report, including outside the Facebook browser.</p>
   </main>
-  <script>
-    document.getElementById('copyOrder').addEventListener('click', async function () {
-      const link = location.origin + location.pathname;
-      try {
-        await navigator.clipboard.writeText(link);
-        document.getElementById('copyStatus').textContent = 'Order link copied.';
-      } catch (_) {
-        document.getElementById('copyStatus').textContent = link;
-      }
-    });
-  </script>
 </body>
 </html>`;
 }
@@ -3196,8 +3160,12 @@ function adminHtml() {
         document.getElementById('stockResult').textContent = error.message;
       }
     });
-    document.getElementById('singleLink').addEventListener('click', async () => {
+    document.getElementById('singleLink').addEventListener('click', async (event) => {
       if (!confirm('Take 1 available report link from inventory for a single-report sale?')) return;
+      const button = event.currentTarget;
+      if (button.disabled) return;
+      button.disabled = true;
+      button.textContent = 'Getting link...';
       try {
         const data = await api('/api/inventory/single-link', {
           method: 'POST',
@@ -3214,6 +3182,8 @@ function adminHtml() {
         await loadAssignments();
       } catch (error) {
         document.getElementById('singleResult').textContent = error.message;
+        button.disabled = false;
+        button.textContent = 'Get single report link';
       }
     });
     document.getElementById('copySingleLink').addEventListener('click', async () => {
@@ -3278,42 +3248,6 @@ function adminHtml() {
 
 async function handleApi(req, res, pathname) {
   const data = readData();
-  if (req.method === 'POST' && pathname === '/api/inventory/return-replaced-single') {
-    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
-    if (!isAdmin(req, requestUrl)) return sendJson(res, 401, { error: 'Admin password required.' });
-    const body = await readBody(req);
-    if (body.confirm !== 'return-replaced-single' || !/^[a-f0-9]{16}$/.test(body.orderId || '')) {
-      return sendJson(res, 400, { error: 'Explicit replaced-order confirmation required.' });
-    }
-    const original = data.orders[body.orderId];
-    const target = original && original.resultUrl;
-    if (!target || target !== body.url || !/^https:\/\/vinfax\.co\/reports\/index\/[A-Z0-9]+$/.test(target)) {
-      return sendJson(res, 409, { error: 'Order report does not match.' });
-    }
-    const html = await fetchText(target);
-    if (!html.includes('x-model="data.vin"') || !/hash:\s*''/.test(html) || !/vin:\s*''/.test(html)) {
-      return sendJson(res, 409, { error: 'Cannot confirm an unused VIN entry page.' });
-    }
-    // Re-read after the external check so concurrent sales are preserved.
-    const latest = readData();
-    const order = latest.orders[body.orderId];
-    const item = latest.inventory.find(item => item.url === target);
-    const otherOrder = Object.values(latest.orders).some(other => other.id !== body.orderId && other.resultUrl === target);
-    const bundled = Object.values(latest.bundles).some(bundle => bundle.reports.some(report => report.url === target));
-    if (!order || order.resultUrl !== target || order.status !== 'fulfilled' || !item || item.status !== 'assigned' || item.assignedBundle !== 'single-sale' || otherOrder || bundled) {
-      return sendJson(res, 409, { error: 'Assignment changed or link has another owner.' });
-    }
-    latest.inventoryReturns = latest.inventoryReturns || [];
-    latest.inventoryReturns.push({ itemId: item.id, url: target, orderId: order.id, returnedAt: new Date().toISOString(), reason: 'Customer received replacement manually; unused original returned by admin.' });
-    order.resultUrl = '';
-    order.resultType = 'manual-replacement';
-    item.status = 'available';
-    item.assignedAt = '';
-    item.assignedBundle = '';
-    writeData(latest);
-    return sendJson(res, 200, { returned: 1, inventory: inventorySummary(latest) });
-  }
-
   if (req.method === 'GET' && pathname === '/api/decode-vin') {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     const vin = normalizeSearchKey(requestUrl.searchParams.get('vin') || '');
@@ -3785,10 +3719,7 @@ const server = http.createServer(async (req, res) => {
           const session = await createStripeCheckoutSession(req, order);
           order.sessionId = session.id || '';
           writeData(data);
-          if (session && session.url) {
-            rememberOrder(req, res, orderId);
-            return redirect(res, session.url);
-          }
+          if (session && session.url) return redirect(res, session.url);
           order.error = 'Stripe did not return a checkout URL.';
           writeData(data);
         } catch (error) {
@@ -3805,19 +3736,12 @@ const server = http.createServer(async (req, res) => {
       return sendHtml(res, checkoutPendingHtml(plan));
     }
 
-    if (req.method === 'GET' && pathname === '/my-reports') {
-      res.setHeader('Cache-Control', 'private, no-store');
-      const data = readData();
-      return sendHtml(res, savedOrdersHtml(savedOrderIds(req).map(id => data.orders[id]).filter(Boolean)));
-    }
-
     const orderMatch = pathname.match(/^\/order\/([a-f0-9]{16})$/);
     if (req.method === 'GET' && orderMatch) {
       const data = readData();
       const order = data.orders[orderMatch[1]];
       if (!order) return notFound(res);
       res.setHeader('Cache-Control', 'private, no-store');
-      rememberOrder(req, res, order.id);
       const sessionId = url.searchParams.get('session_id') || order.sessionId;
       if (sessionId && order.status !== 'fulfilled' && order.status !== 'failed' && STRIPE_SECRET_KEY) {
         const updatedOrder = await fulfillPaidOrderOnce(req, order.id, sessionId);
