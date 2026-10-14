@@ -996,6 +996,7 @@ function stripeRequest(method, stripePath, params = null) {
     });
     request.on('error', reject);
     if (body) request.write(body);
+    request.setTimeout(12000, () => request.destroy(new Error('Payment confirmation timed out. Please retry.')));
     request.end();
   });
 }
@@ -1253,7 +1254,7 @@ function addInventoryLinks(data, rawLinks) {
   return { added, skipped };
 }
 
-async function assignInventory(data, count, token) {
+function assignInventory(data, count, token) {
   const available = data.inventory.filter((item) => item.status === 'available');
   if (available.length < count) return null;
   const now = new Date().toISOString();
@@ -1266,8 +1267,8 @@ async function assignInventory(data, count, token) {
   });
 }
 
-async function assignSingleInventoryLink(data) {
-  const links = await assignInventory(data, 1, 'single-sale');
+function assignSingleInventoryLink(data) {
+  const links = assignInventory(data, 1, 'single-sale');
   return links ? links[0] : null;
 }
 
@@ -1334,7 +1335,8 @@ function removeInventoryItems(data, ids) {
   return { removed: before - data.inventory.length, skipped };
 }
 
-async function fulfillOrderFromPaidSession(req, data, order, session) {
+function fulfillOrderFromPaidSession(req, data, order, session) {
+  // Keep allocation and persistence synchronous so concurrent orders cannot reuse a stock snapshot.
   if (session.payment_status !== 'paid') {
     order.status = 'pending';
     order.processingAt = '';
@@ -1350,7 +1352,7 @@ async function fulfillOrderFromPaidSession(req, data, order, session) {
   const origin = publicOrigin(req);
 
   if (order.plan === 'single') {
-    const url = await assignSingleInventoryLink(data);
+    const url = assignSingleInventoryLink(data);
     if (!url) {
       order.status = 'manual';
       order.resultType = 'manual';
@@ -1370,7 +1372,7 @@ async function fulfillOrderFromPaidSession(req, data, order, session) {
 
   const count = reportCountForPlan(order.plan, order);
   const token = crypto.randomBytes(5).toString('hex');
-  const stockLinks = await assignInventory(data, count, token);
+  const stockLinks = assignInventory(data, count, token);
   if (!stockLinks) {
     order.status = 'manual';
     order.resultType = 'manual';
@@ -1409,11 +1411,26 @@ async function fulfillPaidOrder(req, data, order, sessionId, providedSession = n
   order.processingAt = new Date().toISOString();
   writeData(data);
 
-  const session = providedSession || await retrieveStripeCheckoutSession(sessionId || order.sessionId);
+  let session;
+  try {
+    session = providedSession || await retrieveStripeCheckoutSession(sessionId || order.sessionId);
+  } catch (error) {
+    const latest = readData();
+    const current = latest.orders[order.id];
+    if (current && current.status === 'processing') {
+      current.status = 'pending';
+      current.processingAt = '';
+      writeData(latest);
+    }
+    throw error;
+  }
   const latest = readData();
   const current = latest.orders[order.id];
   if (!current || ['fulfilled', 'failed', 'manual'].includes(current.status)) return current;
   if (session.id !== current.sessionId || session.metadata?.order_id !== current.id) {
+    current.status = 'pending';
+    current.processingAt = '';
+    writeData(latest);
     throw new Error('Payment session does not belong to this order.');
   }
   return fulfillOrderFromPaidSession(req, latest, current, session);
@@ -2899,8 +2916,8 @@ function orderHtml(order) {
         ? (order.error || 'Please contact support to finish this order.')
         : 'If you already paid, refresh this page in a few seconds.';
   const action = fulfilled
-    ? `<a class="button" href="${htmlAttr(order.resultUrl)}">Open ${order.resultType === 'single' ? 'Report' : 'Portal'}</a><p class="link">${htmlAttr(order.resultUrl)}</p>`
-    : `<a class="button" href="/#pricing">Back to plans</a>`;
+    ? `<a class="button" href="${htmlAttr(order.resultUrl)}" referrerpolicy="no-referrer">Open ${order.resultType === 'single' ? 'Report' : 'Portal'}</a><p><label for="reportLink">Your report link</label><input id="reportLink" readonly value="${htmlAttr(order.resultUrl)}" /></p><button class="button" id="copyReport" type="button">Copy report link</button><p>If this link does not open in Facebook, paste it into Safari or Chrome. You do not need to pay again.</p>`
+    : `<a class="button" href="/order/${htmlAttr(order.id)}">Check payment status</a><p>Please do not pay again while this order is being checked.</p>`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -2910,7 +2927,10 @@ function orderHtml(order) {
   <link rel="icon" href="/favicon.ico" sizes="any" />
   <style>
     body { margin:0; min-height:100vh; display:grid; place-items:center; background:#f5f7fa; color:#101828; font-family:Arial,Helvetica,sans-serif; }
+    * { box-sizing:border-box; }
     main { width:min(640px, calc(100% - 32px)); background:#fff; border:1px solid #d9e0ea; border-radius:8px; padding:28px; box-shadow:0 14px 40px rgba(16,24,40,.08); }
+    input { width:100%; min-width:0; padding:12px; border:1px solid #d9e0ea; border-radius:6px; font-size:16px; }
+    button { border:0; cursor:pointer; font:inherit; }
     h1 { margin:0 0 10px; font-size:30px; }
     p { color:#5b6678; line-height:1.55; }
     .button { display:inline-flex; align-items:center; justify-content:center; min-height:42px; border-radius:6px; padding:10px 14px; background:#185bd8; color:#fff; font-weight:800; text-decoration:none; }
@@ -2922,7 +2942,39 @@ function orderHtml(order) {
     <h1>${title}</h1>
     <p>${htmlAttr(message)}</p>
     ${action}
+    <p id="orderStatus" role="status"></p>
+    <p>Order: ${htmlAttr(order.id)}<br><a href="mailto:jojicookin@gmail.com?subject=Order%20${htmlAttr(order.id)}">Contact support</a></p>
   </main>
+  <script>
+    const copy = document.getElementById('copyReport');
+    if (copy) copy.addEventListener('click', async () => {
+      const input = document.getElementById('reportLink');
+      try {
+        await navigator.clipboard.writeText(input.value);
+        document.getElementById('orderStatus').textContent = 'Report link copied.';
+      } catch (_) {
+        input.focus(); input.select(); input.setSelectionRange(0, input.value.length);
+        document.getElementById('orderStatus').textContent = 'Select and copy the report link above.';
+      }
+    });
+    ${!fulfilled && !failed && !manual ? `
+    let attempts = 0;
+    async function checkPayment() {
+      attempts++;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 16000);
+      try {
+        const response = await fetch(location.pathname + '?format=json', { cache: 'no-store', signal: controller.signal });
+        if (!response.ok) throw new Error('Retry');
+        const order = await response.json();
+        if (['fulfilled', 'manual', 'failed'].includes(order.status)) { location.reload(); return; }
+      } catch (_) {}
+      finally { clearTimeout(timeout); }
+      if (attempts < 12) setTimeout(checkPayment, 5000);
+      else document.getElementById('orderStatus').textContent = 'Confirmation is taking longer than expected. Use Check payment status or contact support. Do not pay again.';
+    }
+    setTimeout(checkPayment, 3000);` : ''}
+  </script>
 </body>
 </html>`;
 }
@@ -3337,6 +3389,7 @@ async function handleApi(req, res, pathname) {
     const body = await readBody(req);
     const links = Array.isArray(body.links) ? body.links : [];
     if (!links.length) return sendJson(res, 400, { error: 'Paste at least one inventory link.' });
+    const data = readData();
     const result = addInventoryLinks(data, links);
     writeData(data);
     return sendJson(res, 200, {
@@ -3353,7 +3406,8 @@ async function handleApi(req, res, pathname) {
     if (req.headers['x-admin-intent'] !== 'single-link' || body.confirm !== 'single-link') {
       return sendJson(res, 400, { error: 'Single-link inventory extraction requires explicit admin confirmation.' });
     }
-    const url = await assignSingleInventoryLink(data);
+    const data = readData();
+    const url = assignSingleInventoryLink(data);
     if (!url) return sendJson(res, 400, { error: 'No available inventory links left.' });
     writeData(data);
     return sendJson(res, 200, {
@@ -3421,7 +3475,8 @@ async function handleApi(req, res, pathname) {
 
     const requestedToken = String(body.token || '').trim();
     const token = /^[a-zA-Z0-9_-]{4,64}$/.test(requestedToken) ? requestedToken : crypto.randomBytes(5).toString('hex');
-    const stockLinks = quantity ? await assignInventory(data, quantity, token) : [];
+    const data = readData();
+    const stockLinks = quantity ? assignInventory(data, quantity, token) : [];
     if (quantity && !stockLinks) {
       return sendJson(res, 400, { error: `Not enough inventory. Available stock: ${inventorySummary(data).available}.` });
     }
@@ -3717,18 +3772,24 @@ const server = http.createServer(async (req, res) => {
         writeData(data);
         try {
           const session = await createStripeCheckoutSession(req, order);
-          order.sessionId = session.id || '';
-          writeData(data);
+          const latest = readData();
+          const current = latest.orders[orderId];
+          current.sessionId = session.id || current.sessionId;
+          writeData(latest);
           if (session && session.url) return redirect(res, session.url);
-          order.error = 'Stripe did not return a checkout URL.';
-          writeData(data);
+          current.error = 'Stripe did not return a checkout URL.';
+          writeData(latest);
         } catch (error) {
-          order.status = 'failed';
-          order.error = error.message || 'Stripe checkout could not be created.';
-          writeData(data);
+          const latest = readData();
+          const current = latest.orders[orderId];
+          if (current && current.status === 'pending') {
+            current.status = 'failed';
+            current.error = error.message || 'Stripe checkout could not be created.';
+            writeData(latest);
+          }
           const fallbackUrl = checkoutUrlForPlan(plan);
           if (fallbackUrl) return redirect(res, fallbackUrl);
-          return sendHtml(res, checkoutPendingHtml(plan, order.error));
+          return sendHtml(res, checkoutPendingHtml(plan, 'Checkout could not be started. Please try again.'));
         }
       }
       const checkoutUrl = checkoutUrlForPlan(plan);
@@ -3742,11 +3803,17 @@ const server = http.createServer(async (req, res) => {
       const order = data.orders[orderMatch[1]];
       if (!order) return notFound(res);
       res.setHeader('Cache-Control', 'private, no-store');
-      const sessionId = url.searchParams.get('session_id') || order.sessionId;
+      const sessionId = order.sessionId;
       if (sessionId && order.status !== 'fulfilled' && order.status !== 'failed' && STRIPE_SECRET_KEY) {
-        const updatedOrder = await fulfillPaidOrderOnce(req, order.id, sessionId);
-        if (updatedOrder) Object.assign(order, updatedOrder);
+        try {
+          const updatedOrder = await fulfillPaidOrderOnce(req, order.id, sessionId);
+          if (updatedOrder) Object.assign(order, updatedOrder);
+        } catch (error) {
+          console.error('Order confirmation failed:', order.id, error.message);
+          Object.assign(order, readData().orders[order.id] || {});
+        }
       }
+      if (url.searchParams.get('format') === 'json') return sendJson(res, 200, { status: order.status });
       return sendHtml(res, orderHtml(order));
     }
 
