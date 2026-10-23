@@ -2001,11 +2001,14 @@ function landingHtml() {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>$5 Carfax Report | Instant VIN & Plate Check</title>
-  <meta name="description" content="Check a used vehicle before you buy. Get vehicle history report access from $5, compare VINs, and save previous checks in one customer portal." />
+  <title>$5 Carfax Report | Cheaper Carfax Report</title>
+  <meta name="description" content="One Carfax report for $5. Check vehicle history before buying a used car. Choose a single report or a multi-report bundle, with secure Stripe checkout." />
   <link rel="canonical" href="https://cheapercarfaxreport.com/" />
-  <meta property="og:title" content="Don’t Buy A Used Car Blind | Reports From $5" />
-  <meta property="og:description" content="Check accident, ownership, mileage, and service history before you pay. Start with one $5 vehicle history report." />
+  <meta property="og:title" content="$5 Carfax Report | Cheaper Carfax Report" />
+  <meta property="og:description" content="One Carfax report for $5. Check vehicle history before buying a used car. Single reports and multi-report bundles with secure Stripe checkout." />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="$5 Carfax Report | Cheaper Carfax Report" />
+  <meta name="twitter:description" content="One Carfax report for $5. Check vehicle history before buying a used car. Single reports and multi-report bundles." />
   <meta property="og:url" content="https://cheapercarfaxreport.com/" />
   <meta property="og:type" content="website" />
   <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -2316,8 +2319,8 @@ function landingHtml() {
     <div class="shell hero">
       <div class="hero-main">
         <p class="eyebrow">Check before you buy</p>
-        <h1>Don’t Buy A Used Car <span>Blind</span></h1>
-        <p class="lead">Check accident, ownership, mileage, and service history before you pay. Vehicle history reports start at $5, with saved access for comparing more than one car.</p>
+        <h1>Carfax Report <span>$5 Each</span></h1>
+        <p class="lead">Check vehicle history before buying a used car. One report costs $5, with bundles available when you are comparing more than one vehicle. Independent report access service, not affiliated with CARFAX.</p>
         <div class="customer-proof"><span class="avatar-stack"><img src="/assets/review-junior.jpg" alt="Customer" /><img src="/assets/review-christian.jpg" alt="Customer" /><img src="/assets/review-alejandro.jpg" alt="Customer" /></span><strong>Buyer feedback</strong><span>from real report customers below</span></div>
         <div class="trust-row"><span>Fast report access</span><span>Saved report history</span><span>Secure Stripe checkout</span></div>
         <div class="vin-search hero-search">
@@ -2612,6 +2615,8 @@ function landingHtml() {
         <p>Quick answers before you start checking vehicles.</p>
       </div>
       <div class="faq">
+        <div class="faq-item"><b>Can I get a free Carfax report here?</b><p>Full reports on this website are not free: one report costs $5. The vehicle information preview before checkout is not a full history report and does not establish that a vehicle has no accidents or title issues.</p></div>
+        <div class="faq-item"><b>Looking for a cheaper Carfax report?</b><p>Choose a $5 single report for one vehicle, or compare our bundle prices for several vehicles. Check the sample report and pricing before purchasing.</p></div>
         <div class="faq-item"><b>How does monthly access work?</b><p>Your first-month report credits are delivered to a saved customer portal after checkout. Future service is handled with support.</p></div>
         <div class="faq-item"><b>Why batch refills?</b><p>Batch refills keep the portal stable, prevent accidental overuse, and make sure every report link is tracked properly.</p></div>
         <div class="faq-item"><b>Can I reopen old reports?</b><p>Yes. Previous reports stay saved in your customer portal with VIN or plate history and vehicle notes when available.</p></div>
